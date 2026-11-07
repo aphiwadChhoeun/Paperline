@@ -59,6 +59,7 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragActive, setDragActive] = useState(false)
   const [sampleLoading, setSampleLoading] = useState(false)
+  const [formSampleLoading, setFormSampleLoading] = useState(false)
 
   const hasDocument = Boolean(fileName)
 
@@ -113,6 +114,47 @@ function App() {
       useEditorStore.getState().notify(message, 'error')
     } finally {
       setSampleLoading(false)
+    }
+  }, [])
+
+  const handleTryFormSample = useCallback(async () => {
+    setFormSampleLoading(true)
+    try {
+      const response = await fetch('/form-sample.pdf', { cache: 'no-store' })
+      if (!response.ok) {
+        throw new Error(
+          response.status === 404
+            ? 'The form sample is not available yet. Open your own PDF instead.'
+            : 'The form sample could not be loaded. Try opening your own PDF.',
+        )
+      }
+      const buffer = await response.arrayBuffer()
+      if (buffer.byteLength === 0) {
+        throw new Error('The form sample is empty. Try opening your own PDF instead.')
+      }
+      const header = new Uint8Array(buffer.slice(0, 5))
+      const isPdf =
+        header[0] === 0x25 &&
+        header[1] === 0x50 &&
+        header[2] === 0x44 &&
+        header[3] === 0x46
+      if (!isPdf) {
+        throw new Error(
+          'The form sample is not available yet. Open your own PDF instead.',
+        )
+      }
+      const file = new File([buffer], 'paperline-form-sample.pdf', {
+        type: 'application/pdf',
+      })
+      await useEditorStore.getState().openFile(file)
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'The form sample could not be loaded.'
+      useEditorStore.getState().notify(message, 'error')
+    } finally {
+      setFormSampleLoading(false)
     }
   }, [])
 
@@ -378,7 +420,9 @@ function App() {
                 <EmptyState
                   onOpen={openPicker}
                   onTrySample={() => void handleTrySample()}
+                  onTryFormSample={() => void handleTryFormSample()}
                   sampleLoading={sampleLoading}
+                  formSampleLoading={formSampleLoading}
                 />
               )}
               <RecoveryBanner />

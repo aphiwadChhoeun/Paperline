@@ -7,7 +7,7 @@ Date: 2026-11-06
 | Check | Command | Result |
 | --- | --- | --- |
 | Type-check + production build | `npm run build` | Pass |
-| Export regression tests | `npm test` | 3/3 pass |
+| Export regression tests | `npm test` | 6/6 pass |
 | Lint | `npm run lint` | Pass (9 React `set-state-in-effect` warnings) |
 | Production Lighthouse | Preview server at `http://127.0.0.1:4173` | Accessibility 100, Best Practices 100, SEO 100 |
 
@@ -19,6 +19,9 @@ Date: 2026-11-06
 2. Flattened text annotations are present in extracted text.
 3. Duplicated pages remain independent (regression for pdf-lib sharing page objects when duplicate source indices are copied in one call).
 4. Reordered and deleted pages export in the requested order.
+5. Text, checkbox, radio, dropdown, and option-list form values are written into the exported AcroForm.
+6. Form flattening removes interactive fields.
+7. Image annotations are embedded as PDF image objects.
 
 ## Browser smoke tests
 
@@ -41,6 +44,14 @@ Performed in the in-app Chromium browser against both the Vite dev server and th
 | Reorder/delete page actions exposed | Pass |
 | Undo / redo | Pass |
 | Search returns snippets and page results | Pass |
+| Load fillable form sample | Pass |
+| Detect and render text, checkbox, radio, dropdown, and option-list fields | Pass |
+| Fill form fields and export | Pass |
+| Reopen exported form and read values with pdf-lib | Pass |
+| Form values survive undo | Pass |
+| Insert PNG image into the page | Pass |
+| Select inserted image and edit width/height/opacity controls | Pass |
+| Export image annotation and detect an image draw operator | Pass |
 | Save session, reload browser, reopen same file, restore edits | Pass |
 | Export PDF download | Pass |
 | Reopen exported PDF and extract text | Pass |
@@ -70,6 +81,10 @@ A 3-page sample was opened, annotated, duplicated (4 pages), and rotated. The do
 - Raised the `faint` token contrast to pass WCAG AA and added valid `robots.txt`.
 - Added sample PDF generation and PDF verification scripts.
 - Fixed native file-picker opening: the change handler reset the file input before reading the live `FileList`, which emptied it in real browser selection. It now captures the `File` first. Verified with a real `FileList` and a dispatched picker change event.
+- Added AcroForm extraction, page overlays, value normalization, undo history, and pdf-lib export for text/checkbox/radio/dropdown/option-list fields.
+- Added PNG/JPEG/WebP image insertion, normalization, rendering, inspector sizing, local recovery, and pdf-lib embedding.
+- Added fillable form sample (`public/form-sample.pdf`) and form screenshot.
+- Fixed transient form/annotation history so one undo reverts the whole edit instead of producing a no-op entry.
 
 ## Known warnings and non-blocking issues
 

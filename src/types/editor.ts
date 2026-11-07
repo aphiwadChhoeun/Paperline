@@ -60,11 +60,20 @@ export interface InkAnnotation extends AnnotationBase {
   strokeWidth: number
 }
 
+export interface ImageAnnotation extends AnnotationBase {
+  type: 'image'
+  rect: Rect
+  dataUrl: string
+  mimeType: 'image/png' | 'image/jpeg'
+  name: string
+}
+
 export type Annotation =
   | TextAnnotation
   | HighlightAnnotation
   | RectangleAnnotation
   | InkAnnotation
+  | ImageAnnotation
 
 export interface PageState {
   id: string
@@ -86,11 +95,45 @@ export interface DocumentMeta {
   keywords: string
 }
 
+export type FormFieldType =
+  | 'text'
+  | 'checkbox'
+  | 'radio'
+  | 'dropdown'
+  | 'optionlist'
+
+export type FormValue = string | boolean | string[]
+export type FormValues = Record<string, FormValue>
+
+export interface FormField {
+  id: string
+  pageId: string
+  fieldName: string
+  type: FormFieldType
+  rect: Rect
+  value: FormValue
+  options: string[]
+  readOnly: boolean
+  required: boolean
+  hidden: boolean
+  multiSelect: boolean
+  multiline: boolean
+  exportValue: string | null
+  buttonValue: string | null
+}
+
+export interface EditorSnapshot {
+  pages: PageState[]
+  formValues: FormValues
+}
+
 export interface SessionSnapshot {
   fileName: string
   fileSize: number
   fileLastModified: number
   pages: PageState[]
+  formValues?: FormValues
+  flattenForms?: boolean
   savedAt: number
 }
 
@@ -124,4 +167,5 @@ export const ANNOTATION_LABELS: Record<Annotation['type'], string> = {
   highlight: 'Highlight',
   rectangle: 'Rectangle',
   ink: 'Drawing',
+  image: 'Image',
 }

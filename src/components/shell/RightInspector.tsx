@@ -2,6 +2,8 @@ import {
   Copy,
   FileText,
   Highlighter,
+  Image as ImageIcon,
+  ListChecks,
   PenTool,
   RotateCcw,
   RotateCw,
@@ -50,6 +52,7 @@ const ANNOTATION_ICONS: Record<Annotation['type'], LucideIcon> = {
   highlight: Highlighter,
   rectangle: Square,
   ink: PenTool,
+  image: ImageIcon,
 }
 
 const TEXT_COLORS = ['#181817', '#5b5ce8', '#b42318', '#067647', '#b54708']
@@ -64,22 +67,43 @@ function InspectorSection({ children, className }: { children: ReactNode; classN
 
 interface AnnotationPropertiesProps {
   annotation: Annotation
+  page: PageState
   pageIndex: number
 }
 
-function AnnotationProperties({ annotation, pageIndex }: AnnotationPropertiesProps) {
+function AnnotationProperties({ annotation, page, pageIndex }: AnnotationPropertiesProps) {
   const updateAnnotation = useEditorStore((state) => state.updateAnnotation)
   const deleteAnnotation = useEditorStore((state) => state.deleteAnnotation)
+  const commitTransient = useEditorStore((state) => state.commitTransient)
   const AnnotationIcon = ANNOTATION_ICONS[annotation.type]
 
   const setOpacity = (value: number) =>
     updateAnnotation(annotation.id, { opacity: clamp(value, 0, 1) }, false)
-  // Sliders update transiently while dragging. Committing an empty patch
-  // records one history entry at the already-applied value.
-  const commitOpacity = () => updateAnnotation(annotation.id, {}, true)
+  const commitOpacity = () => commitTransient()
   const setStrokeWidth = (value: number) =>
     updateAnnotation(annotation.id, { strokeWidth: value }, false)
-  const commitStrokeWidth = () => updateAnnotation(annotation.id, {}, true)
+  const commitStrokeWidth = () => commitTransient()
+  const setImageSize = (width: number, height: number) => {
+    const nextWidth = clamp(width, 8, page.width)
+    const nextHeight = clamp(height, 8, page.height)
+    updateAnnotation(annotation.id, {
+      rect: {
+        ...(annotation.type === 'image' ? annotation.rect : { x: 0, y: 0, width: 0, height: 0 }),
+        x: clamp(
+          annotation.type === 'image' ? annotation.rect.x : 0,
+          0,
+          page.width - nextWidth,
+        ),
+        y: clamp(
+          annotation.type === 'image' ? annotation.rect.y : 0,
+          0,
+          page.height - nextHeight,
+        ),
+        width: nextWidth,
+        height: nextHeight,
+      },
+    })
+  }
 
   return (
     <>
@@ -116,7 +140,7 @@ function AnnotationProperties({ annotation, pageIndex }: AnnotationPropertiesPro
                 onChange={(event) =>
                   updateAnnotation(annotation.id, { text: event.target.value }, false)
                 }
-                onBlur={() => updateAnnotation(annotation.id, {}, true)}
+                onBlur={commitTransient}
               />
             </Field>
             <div className="grid grid-cols-[1fr_92px] gap-2">
@@ -277,6 +301,66 @@ function AnnotationProperties({ annotation, pageIndex }: AnnotationPropertiesPro
               onCommit={commitOpacity}
               formatValue={(value) => `${Math.round(value * 100)}%`}
             />
+          </>
+        ) : null}
+
+        {annotation.type === 'image' ? (
+          <>
+            <div className="overflow-hidden rounded-lg border border-line bg-surface-muted/60 p-2">
+              <img
+                src={annotation.dataUrl}
+                alt={annotation.name || 'Inserted image'}
+                className="mx-auto max-h-28 max-w-full object-contain"
+              />
+            </div>
+            <p className="truncate text-[10px] text-muted" title={annotation.name}>
+              {annotation.name || 'Inserted image'}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Width" htmlFor="image-width">
+                <NumberInput
+                  id="image-width"
+                  min={8}
+                  max={Math.round(page.width)}
+                  value={Math.round(annotation.rect.width)}
+                  suffix="pt"
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (Number.isFinite(value)) {
+                      setImageSize(value, annotation.rect.height)
+                    }
+                  }}
+                />
+              </Field>
+              <Field label="Height" htmlFor="image-height">
+                <NumberInput
+                  id="image-height"
+                  min={8}
+                  max={Math.round(page.height)}
+                  value={Math.round(annotation.rect.height)}
+                  suffix="pt"
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (Number.isFinite(value)) {
+                      setImageSize(annotation.rect.width, value)
+                    }
+                  }}
+                />
+              </Field>
+            </div>
+            <RangeControl
+              label="Opacity"
+              value={annotation.opacity}
+              min={0.05}
+              max={1}
+              step={0.05}
+              onChange={setOpacity}
+              onCommit={commitOpacity}
+              formatValue={(value) => `${Math.round(value * 100)}%`}
+            />
+            <p className="rounded-md bg-surface-muted px-2 py-1.5 text-[9.5px] leading-4 text-muted">
+              The image is embedded at full quality when you export.
+            </p>
           </>
         ) : null}
 
@@ -454,6 +538,18 @@ function DocumentProperties() {
   const pageCount = useEditorStore((state) => state.pages.length)
   const metadata = useEditorStore((state) => state.metadata)
   const setMetadata = useEditorStore((state) => state.setMetadata)
+  const formFields = useEditorStore((state) => state.formFields)
+  const formValues = useEditorStore((state) => state.formValues)
+  const flattenForms = useEditorStore((state) => state.flattenForms)
+  const setFlattenForms = useEditorStore((state) => state.setFlattenForms)
+
+  const uniqueFieldNames = [...new Set(formFields.map((field) => field.fieldName))]
+  const filledFields = uniqueFieldNames.filter((name) => {
+    const value = formValues[name]
+    if (Array.isArray(value)) return value.length > 0
+    if (typeof value === 'boolean') return value
+    return Boolean(value)
+  }).length
 
   return (
     <>
@@ -514,6 +610,37 @@ function DocumentProperties() {
           />
         </Field>
       </InspectorSection>
+
+      {uniqueFieldNames.length > 0 ? (
+        <div className="border-t border-line px-3.5 py-3.5">
+          <div className="rounded-lg border border-line bg-surface-muted/60 p-3">
+            <div className="flex items-start gap-2.5">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-600">
+                <ListChecks size={14} strokeWidth={1.8} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-medium text-ink">Fillable form</p>
+                <p className="mt-0.5 text-[9.5px] leading-4 text-muted">
+                  {uniqueFieldNames.length}{' '}
+                  {uniqueFieldNames.length === 1 ? 'field' : 'fields'} detected ·{' '}
+                  {filledFields} filled
+                </p>
+              </div>
+            </div>
+            <div className="mt-2.5">
+              <Switch
+                label="Flatten fields on export"
+                checked={flattenForms}
+                onChange={setFlattenForms}
+              />
+            </div>
+            <p className="mt-2 text-[9px] leading-4 text-faint">
+              Click fields directly on the page to fill them. Flattening removes
+              interactivity but guarantees the values are part of the page content.
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       <div className="border-t border-line px-3.5 py-3.5">
         <div className="flex gap-2.5 rounded-lg border border-[#d8eadf] bg-[#f5fbf7] px-3 py-2.5">
@@ -730,6 +857,11 @@ export function RightInspector() {
           annotation ? (
             <AnnotationProperties
               annotation={annotation}
+              page={
+                pages.find((page) => page.id === annotation.pageId) ??
+                selectedPage ??
+                pages[0]!
+              }
               pageIndex={Math.max(0, annotationPageIndex)}
             />
           ) : selectedPage ? (

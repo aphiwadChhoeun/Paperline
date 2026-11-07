@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sample": "node scripts/make-sample.mjs",
+    "form-sample": "node scripts/make-form-sample.mjs",
     "verify:pdf": "node scripts/verify-export.mjs",
     "preview": "vite preview"
   },

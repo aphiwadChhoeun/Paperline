@@ -8,7 +8,7 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 | --- | --- | --- |
 | Open local PDF via file picker | Shipped | Accepts `.pdf` / `application/pdf`; selected files are captured before the input is reset. |
 | Drag-and-drop PDF | Shipped | Window-level drop overlay. |
-| Bundled sample document | Shipped | `public/sample.pdf`. |
+| Bundled sample document | Shipped | `public/sample.pdf` and fillable `public/form-sample.pdf`. |
 | Password-protected PDF viewing | Shipped | Password dialog and retry. Export is disabled because pdf-lib cannot decrypt. |
 | Multi-document tabs | Not yet | One document at a time. |
 | Recent files library | Partial | Same-file edit recovery, not a full recent-files library. |
@@ -41,7 +41,7 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 | Select and move annotations | Shipped | Selected annotations can be dragged. |
 | Resize annotations with handles | Not yet | Handles are visual only; inspector changes size/style. |
 | Delete annotations | Shipped | Delete key, inspector button, undoable. |
-| Insert images | Not yet | Not exposed. |
+| Insert images | Shipped | PNG/JPEG/WebP, downscaled locally, moved and sized via the inspector, embedded on export. |
 | Redaction | Not yet | Deliberately omitted: a black overlay is not true redaction. |
 | Digital signature | Not yet | No cryptographic signing. |
 | Page reorder | Shipped | Thumbnail drag-and-drop. |
@@ -50,7 +50,9 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 | Insert blank page / insert from PDF | Not yet | Not exposed. |
 | Merge / split / extract | Not yet | Not exposed. |
 | Crop / resize pages | Not yet | Not exposed. |
-| AcroForm fill/create | Not yet | Not exposed. |
+| AcroForm fill | Shipped | Existing text, multiline text, checkboxes, radio groups, dropdowns, and option lists. |
+| AcroForm create | Not yet | No form designer. |
+| Form flattening | Shipped | Optional toggle in the Document inspector. |
 | OCR | Not yet | Not exposed. |
 
 ## Document properties and output
@@ -58,10 +60,12 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 | Capability | Status | Notes |
 | --- | --- | --- |
 | Edit title/author/subject/keywords | Shipped | Applied on export. |
-| Undo / redo | Shipped | Covers annotations and page operations. |
+| Undo / redo | Shipped | Covers annotations, form values, and page operations. |
 | Autosave and same-file recovery | Shipped | `localStorage` keyed by name, size, and modified time. |
-| Export PDF | Shipped | Valid PDF, annotations flattened, page order/rotation applied. |
+| Export PDF | Shipped | Valid PDF, annotations flattened, form values written, page order/rotation applied. |
 | Flatten annotations | Shipped | Export always flattens annotations into page content. |
+| Flatten form fields | Shipped | Optional; values are baked into page content. |
+| Embed images | Shipped | Image annotations are embedded as PDF image objects. |
 | Preserve untouched content | Shipped | In-place path when page order is unchanged. |
 | Preserve bookmarks/forms on page reorganization | Partial | Page copy can drop document-level structures; see limitations. |
 | Password-protect export | Not yet | Not exposed. |
@@ -85,14 +89,14 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 | Dark theme | Not yet | Light theme only. |
 | Real-time collaboration | Not yet | Local-first. |
 | Cloud storage | Not yet | No backend. |
-| Automated export tests | Shipped | 3 Vitest regression tests. |
+| Automated export tests | Shipped | 6 Vitest regression tests. |
 
 ## Quality gates
 
 | Gate | Status |
 | --- | --- |
 | `npm run build` | Pass |
-| `npm test` | Pass (3 tests) |
+| `npm test` | Pass (6 tests) |
 | `npm run lint` | Pass with React effect warnings |
 | Browser smoke test | Pass |
 | Export reopen verification | Pass |

@@ -2,6 +2,7 @@ import {
   FileUp,
   FolderOpen,
   Layers,
+  ListChecks,
   LoaderCircle,
   ShieldCheck,
   Sparkles,
@@ -12,7 +13,9 @@ import { Button } from './ui/Button'
 interface EmptyStateProps {
   onOpen: () => void
   onTrySample: () => void
+  onTryFormSample: () => void
   sampleLoading: boolean
+  formSampleLoading: boolean
 }
 
 const FEATURES = [
@@ -21,7 +24,13 @@ const FEATURES = [
   { icon: ShieldCheck, label: 'Private by default', detail: 'Runs fully in your browser' },
 ]
 
-export function EmptyState({ onOpen, onTrySample, sampleLoading }: EmptyStateProps) {
+export function EmptyState({
+  onOpen,
+  onTrySample,
+  onTryFormSample,
+  sampleLoading,
+  formSampleLoading,
+}: EmptyStateProps) {
   return (
     <div className="workspace-grid flex h-full items-center justify-center overflow-y-auto px-6 py-8">
       <div className="animate-fade-in w-full max-w-[600px]">
@@ -68,6 +77,19 @@ export function EmptyState({ onOpen, onTrySample, sampleLoading }: EmptyStatePro
                   <Sparkles size={14} strokeWidth={1.9} />
                 )}
                 {sampleLoading ? 'Loading sample…' : 'Try sample'}
+              </Button>
+              <Button
+                variant="secondary"
+                className="h-9 px-3.5"
+                onClick={onTryFormSample}
+                disabled={formSampleLoading}
+              >
+                {formSampleLoading ? (
+                  <LoaderCircle size={14} className="animate-spin" />
+                ) : (
+                  <ListChecks size={14} strokeWidth={1.9} />
+                )}
+                {formSampleLoading ? 'Loading form…' : 'Try form'}
               </Button>
             </div>
             <p className="mt-3 text-[9.5px] text-faint">

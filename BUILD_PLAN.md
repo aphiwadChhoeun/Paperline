@@ -88,11 +88,13 @@ Owns:
 ## Current milestone status
 
 Shipped: local PDF open/render, zoom/fit, thumbnails, outline, search,
-text/highlight/rectangle/ink annotations, select/move, page rotate/duplicate/
-reorder/delete, undo/redo, local session recovery, metadata editing, PDF export,
-sample document, command palette, premium shell, export regression tests.
+text/highlight/rectangle/ink/image annotations, select/move, fillable AcroForm
+fields (text, checkbox, radio, dropdown, option list), optional form flattening,
+page rotate/duplicate/reorder/delete, undo/redo, local session recovery, metadata
+editing, PDF export, sample documents, command palette, premium shell, export
+regression tests.
 
-Documented gaps: existing text editing, forms, OCR, redaction, image insertion,
+Documented gaps: existing text editing, form creation, OCR, true redaction,
 digital signatures, merge/split/crop, encrypted-PDF export, cloud collaboration.
 See `FEATURE_MATRIX.md`, `KNOWN_LIMITATIONS.md`, and `QA_REPORT.md`.
 

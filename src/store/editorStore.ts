@@ -3,13 +3,19 @@ import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { createId } from '../lib/id'
 import { isPasswordError, loadPdfDocument } from '../lib/pdfjs'
 import { buildExportBytes } from '../lib/exportPdf'
+import { extractFormFields } from '../lib/forms'
 import { downloadBytes, outputFileName } from '../lib/download'
 import {
   EMPTY_META,
   type Annotation,
   type DocumentMeta,
+  type EditorSnapshot,
   type FontFamily,
+  type FormField,
+  type FormValue,
+  type FormValues,
   type HighlightAnnotation,
+  type ImageAnnotation,
   type InkAnnotation,
   type InspectorTab,
   type Notice,
@@ -29,6 +35,7 @@ export type NewAnnotation =
   | Omit<HighlightAnnotation, 'id' | 'createdAt'>
   | Omit<RectangleAnnotation, 'id' | 'createdAt'>
   | Omit<InkAnnotation, 'id' | 'createdAt'>
+  | Omit<ImageAnnotation, 'id' | 'createdAt'>
 
 export interface AnnotationPatch {
   text?: string
@@ -52,6 +59,9 @@ interface EditorState {
   numPages: number
   pages: PageState[]
   metadata: DocumentMeta
+  formFields: FormField[]
+  formValues: FormValues
+  flattenForms: boolean
   currentPageId: string | null
   selectedPageId: string | null
   selectedAnnotationId: string | null
@@ -76,8 +86,9 @@ interface EditorState {
   recoverableSession: SessionSnapshot | null
   notice: Notice | null
 
-  past: PageState[][]
-  future: PageState[][]
+  past: EditorSnapshot[]
+  future: EditorSnapshot[]
+  pendingSnapshot: EditorSnapshot | null
 
   openFile: (file: File, password?: string) => Promise<void>
   submitPassword: (password: string) => Promise<void>
@@ -105,6 +116,10 @@ interface EditorState {
   deleteAnnotation: (id: string) => void
   deleteSelectedAnnotation: () => void
 
+  updateFormValue: (fieldName: string, value: FormValue, recordHistory?: boolean) => void
+  commitTransient: () => void
+  setFlattenForms: (flatten: boolean) => void
+
   rotatePage: (pageId: string, delta: number) => void
   setPageRotation: (pageId: string, rotation: number) => void
   deletePage: (pageId: string) => void
@@ -128,6 +143,9 @@ const INITIAL = {
   numPages: 0,
   pages: [] as PageState[],
   metadata: EMPTY_META,
+  formFields: [] as FormField[],
+  formValues: {} as FormValues,
+  flattenForms: false,
   currentPageId: null,
   selectedPageId: null,
   selectedAnnotationId: null,
@@ -149,8 +167,9 @@ const INITIAL = {
   pendingFile: null,
   recoverableSession: null,
   notice: null,
-  past: [] as PageState[][],
-  future: [] as PageState[][],
+  past: [] as EditorSnapshot[],
+  future: [] as EditorSnapshot[],
+  pendingSnapshot: null as EditorSnapshot | null,
 }
 
 const SESSION_PREFIX = 'paperline:session:'
@@ -184,6 +203,8 @@ function writeSession(state: EditorState) {
       fileSize: state.fileSize,
       fileLastModified: state.fileLastModified,
       pages: state.pages,
+      formValues: state.formValues,
+      flattenForms: state.flattenForms,
       savedAt: Date.now(),
     }
     localStorage.setItem(
@@ -197,6 +218,17 @@ function writeSession(state: EditorState) {
 
 function clonePages(pages: PageState[]): PageState[] {
   return structuredClone(pages)
+}
+
+function cloneFormValues(values: FormValues): FormValues {
+  return structuredClone(values)
+}
+
+function snapshot(state: Pick<EditorState, 'pages' | 'formValues'>): EditorSnapshot {
+  return {
+    pages: clonePages(state.pages),
+    formValues: cloneFormValues(state.formValues),
+  }
 }
 
 function normalizeRotation(value: number): number {
@@ -223,11 +255,25 @@ function findAnnotation(pages: PageState[], id: string): { page: PageState; anno
 export const useEditorStore = create<EditorState>((set, get) => {
   const commitPages = (next: PageState[], markDirty = true) => {
     const state = get()
-    const previous = clonePages(state.pages)
+    const previous = snapshot(state)
     set({
       pages: next,
       past: [...state.past, previous].slice(-MAX_HISTORY),
       future: [],
+      pendingSnapshot: null,
+      isDirty: markDirty ? true : state.isDirty,
+    })
+    writeSession(get())
+  }
+
+  const commitFormValues = (next: FormValues, markDirty = true) => {
+    const state = get()
+    const previous = snapshot(state)
+    set({
+      formValues: next,
+      past: [...state.past, previous].slice(-MAX_HISTORY),
+      future: [],
+      pendingSnapshot: null,
       isDirty: markDirty ? true : state.isDirty,
     })
     writeSession(get())
@@ -288,6 +334,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
           info = undefined
         }
 
+        const forms = await extractFormFields(pdf, pages)
         const recoverable = readSession(file.name, file.size, file.lastModified)
         set({
           ...INITIAL,
@@ -299,6 +346,8 @@ export const useEditorStore = create<EditorState>((set, get) => {
           numPages: pages.length,
           pages,
           metadata: metaFromPdf(info),
+          formFields: forms.fields,
+          formValues: forms.values,
           currentPageId: pages[0]?.id ?? null,
           selectedPageId: pages[0]?.id ?? null,
           status: 'ready',
@@ -341,11 +390,17 @@ export const useEditorStore = create<EditorState>((set, get) => {
       if (!snapshot || snapshot.pages.length === 0) return
       set({
         pages: clonePages(snapshot.pages),
+        formValues: {
+          ...cloneFormValues(get().formValues),
+          ...cloneFormValues(snapshot.formValues ?? {}),
+        },
+        flattenForms: snapshot.flattenForms ?? get().flattenForms,
         currentPageId: snapshot.pages[0]?.id ?? null,
         selectedPageId: snapshot.pages[0]?.id ?? null,
         selectedAnnotationId: null,
         past: [],
         future: [],
+        pendingSnapshot: null,
         isDirty: true,
         recoverableSession: null,
       })
@@ -395,11 +450,7 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const pages = clonePages(get().pages)
       const page = pages.find((item) => item.id === annotation.pageId)
       if (!page) return annotation
-      if (annotation.type !== 'highlight' && annotation.type !== 'text') {
-        page.annotations.push(annotation)
-      } else {
-        page.annotations.push(annotation)
-      }
+      page.annotations.push(annotation)
       commitPages(pages)
       set({ selectedAnnotationId: annotation.id, inspectorTab: 'properties' })
       return annotation
@@ -426,7 +477,11 @@ export const useEditorStore = create<EditorState>((set, get) => {
               }
             : page,
         )
-        set({ pages, isDirty: true })
+        set({
+          pages,
+          pendingSnapshot: get().pendingSnapshot ?? snapshot(get()),
+          isDirty: true,
+        })
       }
     },
 
@@ -442,6 +497,37 @@ export const useEditorStore = create<EditorState>((set, get) => {
     deleteSelectedAnnotation: () => {
       const id = get().selectedAnnotationId
       if (id) get().deleteAnnotation(id)
+    },
+
+    updateFormValue: (fieldName, value, recordHistory = true) => {
+      const state = get()
+      const next = { ...cloneFormValues(state.formValues), [fieldName]: value }
+      if (recordHistory) {
+        commitFormValues(next)
+      } else {
+        set({
+          formValues: next,
+          pendingSnapshot: get().pendingSnapshot ?? snapshot(get()),
+          isDirty: true,
+        })
+      }
+    },
+
+    commitTransient: () => {
+      const state = get()
+      if (!state.pendingSnapshot) return
+      set({
+        past: [...state.past, state.pendingSnapshot].slice(-MAX_HISTORY),
+        future: [],
+        pendingSnapshot: null,
+        isDirty: true,
+      })
+      writeSession(get())
+    },
+
+    setFlattenForms: (flattenForms) => {
+      set({ flattenForms, isDirty: true })
+      writeSession(get())
     },
 
     rotatePage: (pageId, delta) => {
@@ -531,13 +617,15 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const previous = state.past[state.past.length - 1]
       if (!previous) return
       set({
-        pages: previous,
+        pages: clonePages(previous.pages),
+        formValues: cloneFormValues(previous.formValues),
         past: state.past.slice(0, -1),
-        future: [clonePages(state.pages), ...state.future].slice(0, MAX_HISTORY),
-        currentPageId: previous.some((page) => page.id === state.currentPageId)
+        future: [snapshot(state), ...state.future].slice(0, MAX_HISTORY),
+        currentPageId: previous.pages.some((page) => page.id === state.currentPageId)
           ? state.currentPageId
-          : (previous[0]?.id ?? null),
+          : (previous.pages[0]?.id ?? null),
         selectedAnnotationId: null,
+        pendingSnapshot: null,
         isDirty: true,
       })
       writeSession(get())
@@ -548,13 +636,15 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const next = state.future[0]
       if (!next) return
       set({
-        pages: next,
+        pages: clonePages(next.pages),
+        formValues: cloneFormValues(next.formValues),
         future: state.future.slice(1),
-        past: [...state.past, clonePages(state.pages)].slice(-MAX_HISTORY),
-        currentPageId: next.some((page) => page.id === state.currentPageId)
+        past: [...state.past, snapshot(state)].slice(-MAX_HISTORY),
+        currentPageId: next.pages.some((page) => page.id === state.currentPageId)
           ? state.currentPageId
-          : (next[0]?.id ?? null),
+          : (next.pages[0]?.id ?? null),
         selectedAnnotationId: null,
+        pendingSnapshot: null,
         isDirty: true,
       })
       writeSession(get())
@@ -572,6 +662,8 @@ export const useEditorStore = create<EditorState>((set, get) => {
           originalBytes: state.originalBytes,
           pages: state.pages,
           meta: state.metadata,
+          formValues: state.formValues,
+          flattenForms: state.flattenForms,
         })
         downloadBytes(bytes, outputFileName(state.fileName))
         set({ status: 'ready', isSaving: false, isDirty: false })

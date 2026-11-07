@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import type {
   Annotation,
   HighlightAnnotation,
+  ImageAnnotation,
   InkAnnotation,
   PageState,
   Point,
@@ -496,6 +497,46 @@ export function AnnotationLayer({ page, viewport }: AnnotationLayerProps) {
     )
   }
 
+  const renderImage = (annotation: ImageAnnotation) => {
+    const visual =
+      drag?.annotation.id === annotation.id
+        ? translateAnnotation(annotation, drag.offset.x, drag.offset.y)
+        : annotation
+    const image = visual.type === 'image' ? visual : annotation
+    const anchor = textAnchor(image, viewport)
+    const selected = selectedId === annotation.id
+    return (
+      <div
+        key={annotation.id}
+        className="absolute"
+        style={{
+          left: anchor.x,
+          top: anchor.y,
+          width: image.rect.width * viewport.scale,
+          height: image.rect.height * viewport.scale,
+          transform: `rotate(${viewport.rotation}deg)`,
+          transformOrigin: '0 0',
+          opacity: annotation.opacity,
+          pointerEvents: interactive(annotation) ? 'auto' : 'none',
+          cursor: tool === 'select' ? 'move' : undefined,
+        }}
+        onPointerDown={(event) => startDrag(event, annotation)}
+        onDoubleClick={(event) => {
+          event.stopPropagation()
+          selectAnnotation(annotation.id)
+        }}
+      >
+        <img
+          src={annotation.dataUrl}
+          alt={annotation.name || 'Inserted image'}
+          draggable={false}
+          className="h-full w-full object-fill select-none"
+        />
+        {selected ? <SelectionFrame /> : null}
+      </div>
+    )
+  }
+
   const renderText = (annotation: TextAnnotation) => {
     const visual =
       drag?.annotation.id === annotation.id
@@ -628,6 +669,8 @@ export function AnnotationLayer({ page, viewport }: AnnotationLayerProps) {
         return renderText(annotation)
       case 'ink':
         return renderInk(annotation)
+      case 'image':
+        return renderImage(annotation)
     }
   }
 

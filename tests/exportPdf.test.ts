@@ -17,6 +17,28 @@ async function makeFixture(): Promise<Uint8Array> {
   return doc.save()
 }
 
+async function makeFormFixture(): Promise<Uint8Array> {
+  const doc = await PDFDocument.create()
+  const page = doc.addPage([300, 400])
+  const form = doc.getForm()
+
+  const name = form.createTextField('full_name')
+  name.addToPage(page, { x: 24, y: 300, width: 220, height: 24 })
+
+  const agree = form.createCheckBox('agree')
+  agree.addToPage(page, { x: 24, y: 260, width: 16, height: 16 })
+
+  const color = form.createRadioGroup('color')
+  color.addOptionToPage('Red', page, { x: 80, y: 260, width: 16, height: 16 })
+  color.addOptionToPage('Blue', page, { x: 120, y: 260, width: 16, height: 16 })
+
+  const country = form.createDropdown('country')
+  country.addOptions(['United States', 'Cambodia', 'Japan'])
+  country.addToPage(page, { x: 24, y: 220, width: 180, height: 24 })
+
+  return doc.save()
+}
+
 function pageState(
   sourceIndex: number,
   annotations: Annotation[] = [],
@@ -110,6 +132,69 @@ describe('buildExportBytes', () => {
     expect(text[0]).not.toContain('RIGHT COPY')
     expect(text[1]).toContain('RIGHT COPY')
     expect(text[1]).not.toContain('LEFT COPY')
+  })
+
+  it('writes text, checkbox, radio, and dropdown form values', async () => {
+    const originalBytes = await makeFormFixture()
+    const output = await buildExportBytes({
+      originalBytes,
+      pages: [pageState(0)],
+      meta: { title: 'Form export', author: '', subject: '', keywords: '' },
+      formValues: {
+        full_name: 'Grace Hopper',
+        agree: true,
+        color: 'Blue',
+        country: 'Japan',
+      },
+    })
+    const doc = await PDFDocument.load(output)
+    const form = doc.getForm()
+    expect(form.getTextField('full_name').getText()).toBe('Grace Hopper')
+    expect(form.getCheckBox('agree').isChecked()).toBe(true)
+    expect(form.getRadioGroup('color').getSelected()).toBe('Blue')
+    expect(form.getDropdown('country').getSelected()).toEqual(['Japan'])
+  })
+
+  it('flattens form fields when requested', async () => {
+    const originalBytes = await makeFormFixture()
+    const output = await buildExportBytes({
+      originalBytes,
+      pages: [pageState(0)],
+      meta: { title: '', author: '', subject: '', keywords: '' },
+      formValues: { full_name: 'Flattened value' },
+      flattenForms: true,
+    })
+    const doc = await PDFDocument.load(output)
+    expect(doc.getForm().getFields()).toHaveLength(0)
+  })
+
+  it('embeds image annotations', async () => {
+    const originalBytes = await makeFixture()
+    const png =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lK3Q6wAAAABJRU5ErkJggg=='
+    const pages = [
+      pageState(0, [
+        {
+          id: 'image-1',
+          pageId: 'page-0',
+          type: 'image',
+          createdAt: 1,
+          opacity: 1,
+          rect: { x: 24, y: 200, width: 48, height: 48 },
+          dataUrl: png,
+          mimeType: 'image/png',
+          name: 'pixel.png',
+        },
+      ]),
+    ]
+    const output = await buildExportBytes({
+      originalBytes,
+      pages,
+      meta: { title: '', author: '', subject: '', keywords: '' },
+    })
+    const doc = await PDFDocument.load(output)
+    expect(doc.getPageCount()).toBe(1)
+    expect(output.byteLength).toBeGreaterThan(originalBytes.byteLength)
   })
 
   it('honors page order and deletion', async () => {

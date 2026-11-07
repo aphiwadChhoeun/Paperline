@@ -1,5 +1,7 @@
-import { Lock } from 'lucide-react'
-import { useEditorStore } from '../../store/editorStore'
+import { useRef, type ChangeEvent } from 'react'
+import { ImagePlus, Lock } from 'lucide-react'
+import { currentPage, useEditorStore } from '../../store/editorStore'
+import { prepareImage } from '../../lib/image'
 import { cn } from '../ui/utils'
 import { Tooltip } from '../ui/Tooltip'
 import { TOOL_META, TOOL_ORDER } from './toolConfig'
@@ -7,7 +9,53 @@ import { TOOL_META, TOOL_ORDER } from './toolConfig'
 export function ToolRail() {
   const tool = useEditorStore((state) => state.tool)
   const setTool = useEditorStore((state) => state.setTool)
+  const addAnnotation = useEditorStore((state) => state.addAnnotation)
+  const notify = useEditorStore((state) => state.notify)
   const hasDocument = useEditorStore((state) => Boolean(state.fileName))
+  const imageInputRef = useRef<HTMLInputElement>(null)
+
+  const insertImage = async (file: File) => {
+    try {
+      const prepared = await prepareImage(file)
+      const page = currentPage(useEditorStore.getState())
+      if (!page) return
+      const maxWidth = page.width * 0.55
+      const maxHeight = page.height * 0.55
+      const scale = Math.min(
+        maxWidth / prepared.width,
+        maxHeight / prepared.height,
+        1,
+      )
+      const width = prepared.width * scale
+      const height = prepared.height * scale
+      addAnnotation({
+        pageId: page.id,
+        type: 'image',
+        rect: {
+          x: (page.width - width) / 2,
+          y: (page.height - height) / 2,
+          width,
+          height,
+        },
+        dataUrl: prepared.dataUrl,
+        mimeType: prepared.mimeType,
+        opacity: 1,
+        name: prepared.name,
+      })
+      notify('Image added. Drag it to position it, or adjust its size in the inspector.', 'success')
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : 'That image could not be inserted.',
+        'error',
+      )
+    }
+  }
+
+  const handleImageFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (file) void insertImage(file)
+  }
 
   return (
     <aside
@@ -51,7 +99,31 @@ export function ToolRail() {
             </div>
           )
         })}
+
+        <div className="mt-2 border-t border-line pt-2">
+          <Tooltip label="Insert image" side="right">
+            <button
+              type="button"
+              aria-label="Insert image"
+              disabled={!hasDocument}
+              onClick={() => imageInputRef.current?.click()}
+              className="focus-ring relative flex h-10 w-10 items-center justify-center rounded-[10px] text-muted transition-colors duration-150 hover:bg-surface-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <ImagePlus size={18} strokeWidth={1.75} />
+            </button>
+          </Tooltip>
+        </div>
       </div>
+
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="sr-only"
+        aria-label="Choose an image to insert"
+        tabIndex={-1}
+        onChange={handleImageFile}
+      />
 
       <div className="mt-auto flex flex-col items-center gap-3">
         <span className="h-px w-6 bg-line" aria-hidden="true" />

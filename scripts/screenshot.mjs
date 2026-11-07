@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises'
 
 const port = process.argv[2] ?? '9222'
 const output = process.argv[3] ?? 'screenshot.png'
+const buttonText = process.argv[4] ?? 'Try sample'
 const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()
 const target = list.find((item) => item.type === 'page')
 if (!target) throw new Error('No Chrome page target found')
@@ -44,14 +45,15 @@ async function evaluate(expression) {
 
 await send('Page.enable')
 await send('Runtime.enable')
-await new Promise((resolve) => setTimeout(resolve, 1200))
+await send('Page.navigate', { url: 'http://127.0.0.1:5173/' })
+await new Promise((resolve) => setTimeout(resolve, 1600))
 await evaluate(
-  `(() => { const b = [...document.querySelectorAll('button')].find((item) => item.innerText.includes('Try sample')); if (b) b.click(); return Boolean(b); })()`,
+  `(() => { const b = [...document.querySelectorAll('button')].find((item) => item.innerText.includes(${JSON.stringify(buttonText)})); if (b) b.click(); return Boolean(b); })()`,
 )
 
 for (let attempt = 0; attempt < 40; attempt += 1) {
   const title = await evaluate('document.title')
-  if (title.includes('paperline-sample')) break
+  if (title !== 'Paperline — PDF editor') break
   await new Promise((resolve) => setTimeout(resolve, 250))
 }
 await new Promise((resolve) => setTimeout(resolve, 1800))

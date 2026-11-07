@@ -4,6 +4,8 @@ Paperline is a local-first PDF editor that runs entirely in the browser. Open a 
 
 ![Paperline editor](./screenshots/paperline.png)
 
+![Paperline form filling](./screenshots/paperline-forms.png)
+
 This repository is the first production-quality milestone of a larger PDF editing product. It focuses on a reliable core: high-fidelity rendering, real PDF mutation on export, page organization, annotation, session recovery, and a premium editing shell. The gaps are documented honestly in [FEATURE_MATRIX.md](./FEATURE_MATRIX.md) and [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).
 
 ## What works
@@ -11,10 +13,12 @@ This repository is the first production-quality milestone of a larger PDF editin
 - Open a local PDF with the file picker, drag-and-drop, or the bundled sample.
 - Render pages with PDF.js, including zoom, fit width/page, rotation, thumbnails, and continuous scrolling.
 - Navigate with the outline, full-document search, page thumbnails, and keyboard shortcuts.
-- Add text boxes, highlights, rectangles, and freehand ink annotations.
-- Select, move, restyle, and delete annotations.
+- Add text boxes, highlights, rectangles, freehand ink, and images.
+- Select, move, restyle, resize, and delete annotations.
+- Detect and fill existing AcroForm fields: text, multiline text, checkboxes, radio groups, dropdowns, and option lists.
+- Flatten form fields on export when needed.
 - Rotate, duplicate, reorder, and delete pages.
-- Undo and redo editing and page operations.
+- Undo and redo editing, form values, and page operations.
 - Autosave editable state to browser local storage and recover it when the same file is reopened.
 - Export a valid PDF with annotations flattened and page changes applied.
 - Edit document metadata (title, author, subject, keywords) before export.
@@ -27,7 +31,7 @@ npm install
 npm run dev
 ```
 
-Open the URL printed by Vite. Click **Try sample** to load `public/sample.pdf`, or open your own PDF.
+Open the URL printed by Vite. Click **Try sample** to load `public/sample.pdf`, **Try form** to load the fillable `public/form-sample.pdf`, or open your own PDF.
 
 ### Scripts
 
@@ -39,6 +43,7 @@ Open the URL printed by Vite. Click **Try sample** to load `public/sample.pdf`, 
 | `npm run lint` | Run oxlint. |
 | `npm test` | Run the Vitest regression suite. |
 | `npm run sample` | Regenerate `public/sample.pdf`. |
+| `npm run form-sample` | Regenerate `public/form-sample.pdf`. |
 | `npm run verify:pdf -- <path>` | Inspect page count, rotations, metadata, and extracted text from an exported PDF. |
 
 ## Architecture
@@ -52,7 +57,9 @@ src/
     ui/            Small design-system primitives
   lib/
     pdfjs.ts       PDF.js worker configuration and loader
-    exportPdf.ts   pdf-lib export pipeline
+    exportPdf.ts   pdf-lib export pipeline, form values, embedded images
+    forms.ts       AcroForm widget extraction and value normalization
+    image.ts       Image downscaling and PNG/JPEG normalization
     geometry.ts    PDF/user-space ↔ viewport coordinate helpers
     search.ts      Full-document text search
     download.ts    Browser download helper
@@ -78,11 +85,12 @@ Annotations are stored in PDF user space: 72 points per inch, origin at the bott
 2. If the page order is unchanged, mutate the original document in place to preserve as much structure as possible.
 3. If pages were reordered, duplicated, or deleted, copy pages one at a time into a new document. Copying one at a time avoids a pdf-lib issue where repeated source indices share page objects.
 4. Apply page rotations.
-5. Draw annotations into the page content as text, rectangles, or line segments.
-6. Update metadata and save a fresh PDF.
-7. Download the result through a Blob URL.
+5. Draw annotations into the page content as text, rectangles, line segments, or embedded images.
+6. Write filled AcroForm values through pdf-lib, optionally flattening the form.
+7. Update metadata and save a fresh PDF.
+8. Download the result through a Blob URL.
 
-Annotations are flattened on export. Untouched text, vector content, images, and fonts remain real PDF content rather than screenshots.
+Annotations are flattened on export. Form values remain interactive unless **Flatten fields on export** is enabled. Untouched text, vector content, images, and fonts remain real PDF content rather than screenshots.
 
 ## Local-first behavior
 
@@ -103,6 +111,9 @@ The export suite covers:
 - Annotation flattening and text extraction.
 - Independent content for duplicated pages.
 - Page reordering and deletion.
+- Text, checkbox, radio, and dropdown form values.
+- Form flattening.
+- Image embedding.
 
 See [QA_REPORT.md](./QA_REPORT.md) for the browser smoke-test evidence.
 
@@ -112,4 +123,4 @@ The shell includes labelled controls, keyboard navigation, visible focus rings, 
 
 ## Status
 
-This is a strong local-editor milestone, not a claim of full Adobe Acrobat parity. Existing-PDF text editing, AcroForm editing, OCR, true redaction, image insertion, digital signatures, and cloud collaboration are intentionally left for later phases rather than shipped as fake controls. See [FEATURE_MATRIX.md](./FEATURE_MATRIX.md) for the complete status.
+This is a strong local-editor milestone, not a claim of full Adobe Acrobat parity. Form filling and image insertion are implemented. Existing-PDF text editing, form creation, OCR, true redaction, digital signatures, merge/split/crop, and cloud collaboration are intentionally left for later phases rather than shipped as fake controls. See [FEATURE_MATRIX.md](./FEATURE_MATRIX.md) for the complete status.

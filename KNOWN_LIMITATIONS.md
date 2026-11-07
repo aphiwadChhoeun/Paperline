@@ -24,11 +24,22 @@ Paperline is honest about what it does not do. These are intentional boundaries,
 - Digital signatures and certificate-based signing are not implemented. Editing a signed PDF may invalidate existing signatures.
 - No malware scanning, sandboxing beyond the browser process, or server-side validation is performed.
 
-## Forms, OCR, and AI
+## Forms
 
-- AcroForm detection, filling, creation, and flattening are not implemented.
+- Existing AcroForm fields can be filled: text, multiline text, checkboxes, radio groups, dropdowns, and option lists. Form **creation** is not implemented.
+- Form values are written on export through pdf-lib. Interactive fields remain interactive unless **Flatten fields on export** is enabled.
+- Field appearance updates use pdf-lib's built-in appearance handling. Complex custom field appearances, calculation scripts, validation scripts, and non-WinAnsi glyphs may not render exactly like the original authoring tool.
+- Page reordering, deletion, or duplication creates a new document via page copying. Form fields may not survive those document-level page operations; fill forms on documents whose page order is unchanged for the most reliable export.
+- Signature fields are not displayed or signed. Digital signatures are not implemented.
 - OCR of scanned PDFs is not implemented.
 - No AI summarization, question answering, or document analysis is included.
+
+## Images
+
+- Image insertion supports PNG, JPEG, and WebP source files. Images are normalized to PNG/JPEG and capped at 1600px on the longest edge to keep local recovery manageable.
+- Images can be moved by dragging and resized with the inspector's width/height fields. There is no crop, rotation handle, aspect-ratio lock, or layer ordering UI.
+- Image annotations are flattened into the exported PDF. The original image quality is limited by the 1600px normalization cap.
+- Very large numbers of embedded images can exceed browser `localStorage` recovery limits. Export still works because the image data lives in memory; only session recovery is affected.
 
 ## Collaboration and storage
 

@@ -1,10 +1,31 @@
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
-import type { Annotation, DocumentMeta, PageState } from '../types/editor'
+import {
+  PDFCheckBox,
+  PDFDocument,
+  PDFDropdown,
+  PDFOptionList,
+  PDFRadioGroup,
+  PDFTextField,
+  StandardFonts,
+  degrees,
+  rgb,
+  type PDFFont,
+  type PDFImage,
+  type PDFPage,
+} from 'pdf-lib'
+import type {
+  Annotation,
+  DocumentMeta,
+  FormValue,
+  FormValues,
+  PageState,
+} from '../types/editor'
 
 export interface BuildExportOptions {
   originalBytes: Uint8Array
   pages: PageState[]
   meta: DocumentMeta
+  formValues?: FormValues
+  flattenForms?: boolean
 }
 
 function hexToRgb(hex: string) {
@@ -72,10 +93,18 @@ function drawTextAnnotation(
   })
 }
 
-function drawAnnotation(
+function dataUrlToBytes(dataUrl: string): Uint8Array {
+  const encoded = dataUrl.slice(dataUrl.indexOf(',') + 1)
+  const binary = atob(encoded)
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0))
+}
+
+async function drawAnnotation(
+  document: PDFDocument,
   page: PDFPage,
   annotation: Annotation,
   fonts: Record<'Helvetica' | 'Times' | 'Courier', PDFFont>,
+  imageCache: Map<string, Promise<PDFImage>>,
 ) {
   switch (annotation.type) {
     case 'text':
@@ -121,6 +150,71 @@ function drawAnnotation(
       }
       break
     }
+    case 'image': {
+      let embedded = imageCache.get(annotation.dataUrl)
+      if (!embedded) {
+        const bytes = dataUrlToBytes(annotation.dataUrl)
+        embedded =
+          annotation.mimeType === 'image/jpeg'
+            ? document.embedJpg(bytes)
+            : document.embedPng(bytes)
+        imageCache.set(annotation.dataUrl, embedded)
+      }
+      const image = await embedded
+      page.drawImage(image, {
+        x: annotation.rect.x,
+        y: annotation.rect.y,
+        width: annotation.rect.width,
+        height: annotation.rect.height,
+        opacity: annotation.opacity,
+      })
+      break
+    }
+  }
+}
+
+function applyFormValue(
+  form: ReturnType<PDFDocument['getForm']>,
+  name: string,
+  value: FormValue,
+) {
+  const field = form.getFieldMaybe(name)
+  if (!field) return
+
+  if (field instanceof PDFTextField) {
+    field.setText(Array.isArray(value) ? value.join(', ') : String(value))
+    return
+  }
+  if (field instanceof PDFCheckBox) {
+    if (value === true || value === 'true' || value === 'Yes') field.check()
+    else field.uncheck()
+    return
+  }
+  if (field instanceof PDFRadioGroup) {
+    if (typeof value === 'string' && value && value !== 'Off') field.select(value)
+    else field.clear()
+    return
+  }
+  if (field instanceof PDFDropdown) {
+    if (Array.isArray(value)) {
+      if (value.length > 0) field.select(value)
+      else field.clear()
+    } else if (typeof value === 'string' && value) {
+      field.select(value)
+    } else {
+      field.clear()
+    }
+    return
+  }
+  if (field instanceof PDFOptionList) {
+    if (Array.isArray(value)) {
+      if (value.length > 0) field.select(value)
+      else field.clear()
+    } else if (typeof value === 'string' && value) {
+      field.select(value)
+    } else {
+      field.clear()
+    }
   }
 }
 
@@ -128,6 +222,8 @@ export async function buildExportBytes({
   originalBytes,
   pages,
   meta,
+  formValues = {},
+  flattenForms = false,
 }: BuildExportOptions): Promise<Uint8Array> {
   if (pages.length === 0) throw new Error('There are no pages to export.')
 
@@ -161,14 +257,25 @@ export async function buildExportBytes({
     Courier: await output.embedFont(StandardFonts.Courier),
   }
 
-  pages.forEach((pageState, index) => {
+  const imageCache = new Map<string, Promise<PDFImage>>()
+  for (const [index, pageState] of pages.entries()) {
     const page = outputPages[index]
-    if (!page) return
+    if (!page) continue
     page.setRotation(degrees(pageState.rotation))
     for (const annotation of pageState.annotations) {
-      drawAnnotation(page, annotation, fonts)
+      await drawAnnotation(output, page, annotation, fonts, imageCache)
     }
-  })
+  }
+
+  if (flattenForms || Object.keys(formValues).length > 0) {
+    const form = output.getForm()
+    for (const [name, value] of Object.entries(formValues)) {
+      applyFormValue(form, name, value)
+    }
+    if (flattenForms && form.getFields().length > 0) {
+      form.flatten()
+    }
+  }
 
   const originalMeta = original.getTitle() ?? ''
   const originalKeywords = original.getKeywords() ?? ''

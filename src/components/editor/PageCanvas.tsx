@@ -4,6 +4,7 @@ import type { PageState } from '../../types/editor'
 import { useEditorStore } from '../../store/editorStore'
 import { rotatedPageSize } from '../../lib/geometry'
 import { AnnotationLayer } from './AnnotationLayer'
+import { FormLayer } from './FormLayer'
 
 interface PageCanvasProps {
   page: PageState
@@ -159,6 +160,7 @@ export function PageCanvas({ page, scale, pageNumber, isActive }: PageCanvasProp
         ) : null}
 
         {viewport ? <AnnotationLayer page={page} viewport={viewport} /> : null}
+        {viewport ? <FormLayer page={page} viewport={viewport} /> : null}
       </div>
 
       <span
