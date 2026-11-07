@@ -6,13 +6,15 @@ Paperline is a local-first PDF editor that runs entirely in the browser. Open a 
 
 ![Paperline form filling](./screenshots/paperline-forms.png)
 
+![Paperline search highlights](./screenshots/paperline-search.png)
+
 This repository is the first production-quality milestone of a larger PDF editing product. It focuses on a reliable core: high-fidelity rendering, real PDF mutation on export, page organization, annotation, session recovery, and a premium editing shell. The gaps are documented honestly in [FEATURE_MATRIX.md](./FEATURE_MATRIX.md) and [KNOWN_LIMITATIONS.md](./KNOWN_LIMITATIONS.md).
 
 ## What works
 
 - Open a local PDF with the file picker, drag-and-drop, or the bundled sample.
 - Render pages with PDF.js, including zoom, fit width/page, rotation, thumbnails, and continuous scrolling.
-- Navigate with the outline, full-document search, page thumbnails, and keyboard shortcuts.
+- Navigate with the outline, full-document search with on-page match highlights, page thumbnails, and keyboard shortcuts.
 - Add text boxes, highlights, rectangles, freehand ink, and images.
 - Select, move, restyle, resize, and delete annotations.
 - Detect and fill existing AcroForm fields: text, multiline text, checkboxes, radio groups, dropdowns, and option lists.

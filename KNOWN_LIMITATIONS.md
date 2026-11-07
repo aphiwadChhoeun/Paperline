@@ -69,7 +69,7 @@ Paperline is honest about what it does not do. These are intentional boundaries,
 
 - Selection handles are visual only. Annotations can be dragged but not resized by dragging a handle; use the inspector controls instead.
 - Fit width is derived from the active page, so mixed-size documents may have pages wider than the viewport.
-- Search matches are shown in the result panel but are not highlighted on the PDF canvas.
+- Search highlights are geometric approximations based on PDF.js text-run widths. Variable-width fonts and multi-line phrases may highlight slightly wider or narrower than the glyphs.
 - The interface is desktop-first. Mobile shows a clear notice rather than a degraded editor.
 - Dark theme is not included in this milestone.
 - The PDF canvas is a rendered bitmap; it is not a text layer, so copy/paste of source text is unavailable.

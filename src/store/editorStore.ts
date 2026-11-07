@@ -26,6 +26,7 @@ import {
   type Rect,
   type RectangleAnnotation,
   type RedactionAnnotation,
+  type SearchMatch,
   type SessionSnapshot,
   type SidebarTab,
   type TextAlign,
@@ -89,6 +90,8 @@ interface EditorState {
   pendingFile: File | null
   recoverableSession: SessionSnapshot | null
   notice: Notice | null
+  searchMatches: SearchMatch[]
+  activeSearchMatchId: string | null
   ocrOpen: boolean
   ocrStatus: 'idle' | 'running' | 'done' | 'error'
   ocrProgress: number
@@ -130,6 +133,9 @@ interface EditorState {
   setFlattenForms: (flatten: boolean) => void
   setOcrOpen: (open: boolean) => void
   runOcr: (pageIds: string[], language: string) => Promise<void>
+  setSearchMatches: (matches: SearchMatch[]) => void
+  setActiveSearchMatch: (id: string | null) => void
+  clearSearchHighlights: () => void
 
   rotatePage: (pageId: string, delta: number) => void
   setPageRotation: (pageId: string, rotation: number) => void
@@ -178,6 +184,8 @@ const INITIAL = {
   pendingFile: null,
   recoverableSession: null,
   notice: null,
+  searchMatches: [] as SearchMatch[],
+  activeSearchMatchId: null,
   ocrOpen: false,
   ocrStatus: 'idle' as const,
   ocrProgress: 0,
@@ -605,6 +613,17 @@ export const useEditorStore = create<EditorState>((set, get) => {
         notify(message, 'error')
       }
     },
+
+    setSearchMatches: (matches) =>
+      set({
+        searchMatches: matches,
+        activeSearchMatchId: matches[0]?.id ?? null,
+      }),
+
+    setActiveSearchMatch: (activeSearchMatchId) => set({ activeSearchMatchId }),
+
+    clearSearchHighlights: () =>
+      set({ searchMatches: [], activeSearchMatchId: null }),
 
     rotatePage: (pageId, delta) => {
       const pages = clonePages(get().pages)

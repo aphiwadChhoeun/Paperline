@@ -5,6 +5,7 @@ import { useEditorStore } from '../../store/editorStore'
 import { rotatedPageSize } from '../../lib/geometry'
 import { AnnotationLayer } from './AnnotationLayer'
 import { FormLayer } from './FormLayer'
+import { SearchHighlightLayer } from './SearchHighlightLayer'
 
 interface PageCanvasProps {
   page: PageState
@@ -161,6 +162,7 @@ export function PageCanvas({ page, scale, pageNumber, isActive }: PageCanvasProp
 
         {viewport ? <AnnotationLayer page={page} viewport={viewport} /> : null}
         {viewport ? <FormLayer page={page} viewport={viewport} /> : null}
+        {viewport ? <SearchHighlightLayer page={page} viewport={viewport} /> : null}
       </div>
 
       <span

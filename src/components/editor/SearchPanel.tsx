@@ -24,6 +24,10 @@ export function SearchPanel() {
   const pdf = useEditorStore((state) => state.pdf)
   const pages = useEditorStore((state) => state.pages)
   const setCurrentPageId = useEditorStore((state) => state.setCurrentPageId)
+  const activeSearchMatchId = useEditorStore((state) => state.activeSearchMatchId)
+  const setSearchMatches = useEditorStore((state) => state.setSearchMatches)
+  const setActiveSearchMatch = useEditorStore((state) => state.setActiveSearchMatch)
+  const clearSearchHighlights = useEditorStore((state) => state.clearSearchHighlights)
 
   const [query, setQuery] = useState('')
   const [searched, setSearched] = useState('')
@@ -47,6 +51,7 @@ export function SearchPanel() {
       setLoading(false)
       setProgress({ done: 0, total: 0 })
       setError(null)
+      clearSearchHighlights()
       return
     }
     if (!pdf) return
@@ -54,6 +59,7 @@ export function SearchPanel() {
     const controller = new AbortController()
     setLoading(true)
     setError(null)
+    clearSearchHighlights()
     setProgress({ done: 0, total: pagesRef.current.length })
 
     const timeout = window.setTimeout(() => {
@@ -66,6 +72,7 @@ export function SearchPanel() {
         .then((found) => {
           if (controller.signal.aborted) return
           setResults(found)
+          setSearchMatches(found)
           setSearched(trimmed)
           setLoading(false)
           setProgress({ done: pagesRef.current.length, total: pagesRef.current.length })
@@ -73,6 +80,7 @@ export function SearchPanel() {
         .catch((reason: unknown) => {
           if (controller.signal.aborted) return
           setError(reason instanceof Error ? reason.message : 'Search could not be completed.')
+          setSearchMatches([])
           setLoading(false)
         })
     }, 260)
@@ -81,10 +89,15 @@ export function SearchPanel() {
       window.clearTimeout(timeout)
       controller.abort()
     }
-  }, [query, pdf, pagesKey])
+  }, [query, pdf, pagesKey, clearSearchHighlights, setSearchMatches])
+
+  useEffect(() => {
+    return () => clearSearchHighlights()
+  }, [clearSearchHighlights])
 
   const jumpToResult = (match: SearchMatch | undefined) => {
     if (!match) return
+    setActiveSearchMatch(match.id)
     setCurrentPageId(match.pageId)
   }
 
@@ -160,12 +173,18 @@ export function SearchPanel() {
                 <p className="text-xs text-muted">No matches found on any page.</p>
               </div>
             ) : (
-              results.map((match, index) => (
+              results.map((match) => {
+                const active = match.id === activeSearchMatchId
+                return (
                 <button
-                  key={`${match.pageId}-${index}`}
+                  key={match.id}
                   type="button"
                   onClick={() => jumpToResult(match)}
-                  className="focus-ring w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-muted"
+                  aria-current={active ? 'true' : undefined}
+                  className={[
+                    'focus-ring w-full rounded-lg px-2 py-1.5 text-left transition-colors',
+                    active ? 'bg-amber-50 ring-1 ring-amber-200' : 'hover:bg-surface-muted',
+                  ].join(' ')}
                 >
                   <span className="inline-flex items-center rounded-[3px] bg-accent-50 px-1.5 py-px text-[9px] font-semibold uppercase tracking-[0.06em] text-accent-600">
                     Page {match.pageIndex + 1}
@@ -174,7 +193,8 @@ export function SearchPanel() {
                     <Snippet snippet={match.snippet} query={searched} />
                   </p>
                 </button>
-              ))
+                )
+              })
             )}
           </div>
         ) : (

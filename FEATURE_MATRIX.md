@@ -24,7 +24,7 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 | Page rotation | Shipped | 0/90/180/270, reflected in viewer and export. |
 | Page thumbnails | Shipped | Lazy rendering, rotation, duplicate, delete, drag reorder. |
 | Outline/bookmark navigation | Shipped | Nested outline with destination resolution. |
-| Full-document search | Shipped | Debounced, abortable, result snippets, page navigation; includes OCR text layers. |
+| Full-document search | Shipped | Debounced, abortable, result snippets, page navigation, on-page match highlights; includes OCR text layers. |
 | Text selection and copy | Not yet | No PDF.js text layer in this milestone. |
 | Link navigation | Partial | Links are preserved by pdf-lib's page copy where possible, but not interactively exposed. |
 

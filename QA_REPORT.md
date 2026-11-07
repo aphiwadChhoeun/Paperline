@@ -47,6 +47,8 @@ Performed in the in-app Chromium browser against both the Vite dev server and th
 | Reorder/delete page actions exposed | Pass |
 | Undo / redo | Pass |
 | Search returns snippets and page results | Pass |
+| Search renders all matches on the page, with the active result strongly highlighted | Pass |
+| Clicking a result highlights the match on its target page | Pass |
 | Load fillable form sample | Pass |
 | Detect and render text, checkbox, radio, dropdown, and option-list fields | Pass |
 | Fill form fields and export | Pass |

@@ -159,10 +159,13 @@ export interface SessionSnapshot {
 }
 
 export interface SearchMatch {
+  id: string
   pageId: string
   pageIndex: number
   snippet: string
   text: string
+  /** PDF-space rectangles for every line/word fragment covered by the match. */
+  rects: Rect[]
 }
 
 export interface Notice {
