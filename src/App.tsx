@@ -3,6 +3,7 @@ import { FileUp, LoaderCircle } from 'lucide-react'
 import { useEditorStore } from './store/editorStore'
 import { CommandPalette } from './components/CommandPalette'
 import { EmptyState } from './components/EmptyState'
+import { OcrDialog } from './components/OcrDialog'
 import { PasswordDialog } from './components/PasswordDialog'
 import { RecoveryBanner } from './components/RecoveryBanner'
 import { Toast } from './components/Toast'
@@ -394,6 +395,10 @@ function App() {
           claim()
           state.setTool('ink')
           break
+        case 'x':
+          claim()
+          state.setTool('redact')
+          break
         default:
           break
       }
@@ -442,6 +447,7 @@ function App() {
 
       <Toast />
       {passwordRequired ? <PasswordDialog /> : null}
+      <OcrDialog />
       <CommandPalette onOpen={openPicker} />
 
       <input

@@ -7,6 +7,8 @@ import {
   PenTool,
   RotateCcw,
   RotateCw,
+  ScanText,
+  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Square,
@@ -53,6 +55,7 @@ const ANNOTATION_ICONS: Record<Annotation['type'], LucideIcon> = {
   rectangle: Square,
   ink: PenTool,
   image: ImageIcon,
+  redaction: ShieldAlert,
 }
 
 const TEXT_COLORS = ['#181817', '#5b5ce8', '#b42318', '#067647', '#b54708']
@@ -83,22 +86,16 @@ function AnnotationProperties({ annotation, page, pageIndex }: AnnotationPropert
   const setStrokeWidth = (value: number) =>
     updateAnnotation(annotation.id, { strokeWidth: value }, false)
   const commitStrokeWidth = () => commitTransient()
-  const setImageSize = (width: number, height: number) => {
+  const setRectSize = (width: number, height: number) => {
+    if (!('rect' in annotation)) return
+    const currentRect = annotation.rect
     const nextWidth = clamp(width, 8, page.width)
     const nextHeight = clamp(height, 8, page.height)
     updateAnnotation(annotation.id, {
       rect: {
-        ...(annotation.type === 'image' ? annotation.rect : { x: 0, y: 0, width: 0, height: 0 }),
-        x: clamp(
-          annotation.type === 'image' ? annotation.rect.x : 0,
-          0,
-          page.width - nextWidth,
-        ),
-        y: clamp(
-          annotation.type === 'image' ? annotation.rect.y : 0,
-          0,
-          page.height - nextHeight,
-        ),
+        ...currentRect,
+        x: clamp(currentRect.x, 0, page.width - nextWidth),
+        y: clamp(currentRect.y, 0, page.height - nextHeight),
         width: nextWidth,
         height: nextHeight,
       },
@@ -327,7 +324,7 @@ function AnnotationProperties({ annotation, page, pageIndex }: AnnotationPropert
                   onChange={(event) => {
                     const value = Number(event.target.value)
                     if (Number.isFinite(value)) {
-                      setImageSize(value, annotation.rect.height)
+                      setRectSize(value, annotation.rect.height)
                     }
                   }}
                 />
@@ -342,7 +339,7 @@ function AnnotationProperties({ annotation, page, pageIndex }: AnnotationPropert
                   onChange={(event) => {
                     const value = Number(event.target.value)
                     if (Number.isFinite(value)) {
-                      setImageSize(annotation.rect.width, value)
+                      setRectSize(annotation.rect.width, value)
                     }
                   }}
                 />
@@ -360,6 +357,63 @@ function AnnotationProperties({ annotation, page, pageIndex }: AnnotationPropert
             />
             <p className="rounded-md bg-surface-muted px-2 py-1.5 text-[9.5px] leading-4 text-muted">
               The image is embedded at full quality when you export.
+            </p>
+          </>
+        ) : null}
+
+        {annotation.type === 'redaction' ? (
+          <>
+            <div className="flex gap-2.5 rounded-lg border border-[#f3c6c2] bg-[#fffafa] px-3 py-2.5">
+              <ShieldAlert
+                size={15}
+                strokeWidth={1.8}
+                className="mt-0.5 shrink-0 text-[#b42318]"
+              />
+              <div>
+                <p className="text-[10px] font-medium text-ink-soft">
+                  Permanent redaction
+                </p>
+                <p className="mt-0.5 text-[9.5px] leading-4 text-muted">
+                  On export this page is flattened to an image and this area is
+                  painted out. Underlying text and images cannot be recovered.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Width" htmlFor="redaction-width">
+                <NumberInput
+                  id="redaction-width"
+                  min={8}
+                  max={Math.round(page.width)}
+                  value={Math.round(annotation.rect.width)}
+                  suffix="pt"
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (Number.isFinite(value)) {
+                      setRectSize(value, annotation.rect.height)
+                    }
+                  }}
+                />
+              </Field>
+              <Field label="Height" htmlFor="redaction-height">
+                <NumberInput
+                  id="redaction-height"
+                  min={8}
+                  max={Math.round(page.height)}
+                  value={Math.round(annotation.rect.height)}
+                  suffix="pt"
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (Number.isFinite(value)) {
+                      setRectSize(annotation.rect.width, value)
+                    }
+                  }}
+                />
+              </Field>
+            </div>
+            <p className="rounded-md bg-surface-muted px-2 py-1.5 text-[9.5px] leading-4 text-muted">
+              The page becomes non-selectable after redaction. Use this when
+              removal matters more than preserving text.
             </p>
           </>
         ) : null}
@@ -535,9 +589,11 @@ function PageProperties({ page, index, total }: PagePropertiesProps) {
 function DocumentProperties() {
   const fileName = useEditorStore((state) => state.fileName)
   const fileSize = useEditorStore((state) => state.fileSize)
-  const pageCount = useEditorStore((state) => state.pages.length)
+  const pages = useEditorStore((state) => state.pages)
+  const pageCount = pages.length
   const metadata = useEditorStore((state) => state.metadata)
   const setMetadata = useEditorStore((state) => state.setMetadata)
+  const setOcrOpen = useEditorStore((state) => state.setOcrOpen)
   const formFields = useEditorStore((state) => state.formFields)
   const formValues = useEditorStore((state) => state.formValues)
   const flattenForms = useEditorStore((state) => state.flattenForms)
@@ -550,6 +606,7 @@ function DocumentProperties() {
     if (typeof value === 'boolean') return value
     return Boolean(value)
   }).length
+  const ocrPageCount = pages.filter((page) => (page.ocr?.words.length ?? 0) > 0).length
 
   return (
     <>
@@ -641,6 +698,33 @@ function DocumentProperties() {
           </div>
         </div>
       ) : null}
+
+      <div className="border-t border-line px-3.5 py-3.5">
+        <div className="rounded-lg border border-line bg-surface-muted/60 p-3">
+          <div className="flex items-start gap-2.5">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent-600">
+              <ScanText size={14} strokeWidth={1.8} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium text-ink">Searchable text</p>
+              <p className="mt-0.5 text-[9.5px] leading-4 text-muted">
+                {ocrPageCount > 0
+                  ? `${ocrPageCount} ${ocrPageCount === 1 ? 'page has' : 'pages have'} an OCR text layer.`
+                  : 'Scanned pages can get an invisible searchable text layer.'}
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-2.5 w-full"
+            onClick={() => setOcrOpen(true)}
+          >
+            <ScanText size={13} strokeWidth={1.9} />
+            {ocrPageCount > 0 ? 'Run OCR again' : 'Run OCR'}
+          </Button>
+        </div>
+      </div>
 
       <div className="border-t border-line px-3.5 py-3.5">
         <div className="flex gap-2.5 rounded-lg border border-[#d8eadf] bg-[#f5fbf7] px-3 py-2.5">

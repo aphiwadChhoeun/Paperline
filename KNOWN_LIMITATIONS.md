@@ -19,7 +19,7 @@ Paperline is honest about what it does not do. These are intentional boundaries,
 
 ## Security and sensitive content
 
-- **Redaction is not implemented.** A black rectangle drawn over text does not remove the underlying content and would create a false sense of security. The tool is omitted until destructive content removal can be verified.
+- **Redaction is destructive but page-wide.** Redacted pages are rasterized to an image with the black boxes burned in, so source text and images on that page cannot be extracted. The trade-off is that the entire page becomes non-selectable and document-level structures on that page (forms, bookmarks, links) are lost.
 - Password-protected PDFs can be opened for viewing. Export is disabled because pdf-lib cannot decrypt them.
 - Digital signatures and certificate-based signing are not implemented. Editing a signed PDF may invalidate existing signatures.
 - No malware scanning, sandboxing beyond the browser process, or server-side validation is performed.
@@ -31,8 +31,25 @@ Paperline is honest about what it does not do. These are intentional boundaries,
 - Field appearance updates use pdf-lib's built-in appearance handling. Complex custom field appearances, calculation scripts, validation scripts, and non-WinAnsi glyphs may not render exactly like the original authoring tool.
 - Page reordering, deletion, or duplication creates a new document via page copying. Form fields may not survive those document-level page operations; fill forms on documents whose page order is unchanged for the most reliable export.
 - Signature fields are not displayed or signed. Digital signatures are not implemented.
-- OCR of scanned PDFs is not implemented.
 - No AI summarization, question answering, or document analysis is included.
+
+## OCR
+
+- OCR uses Tesseract.js. Language data is downloaded on demand from the Tesseract CDN; the document image itself is processed locally and never uploaded.
+- OCR can run on the current page or all pages. Large documents take time, and there is no cancel/background queue yet beyond closing the dialog while it runs.
+- Accuracy depends on scan quality, resolution, skew, handwriting, and language. Low-confidence words are still included.
+- OCR text layers are written with standard PDF fonts and sanitized to a Latin/WinAnsi-compatible character range. Non-Latin scripts may not be fully represented in the exported searchable layer even if Tesseract recognizes them.
+- OCR is performed on the unrotated page raster. Pages with unusual rotation, crop boxes, or very small text may produce offset or poor results.
+- Redaction clears the OCR layer for that page. Redacted pages are exported as images without an OCR layer.
+- The in-app search panel searches the OCR text, but OCR text is not highlighted on the PDF canvas.
+
+## Redaction
+
+- Redaction requires rasterizing the entire affected page. Text outside the black boxes on that page also becomes non-selectable after export.
+- Redacted pages lose interactive forms, links, bookmarks, and other document-level structures because the page is replaced by an image.
+- The raster resolution is capped at 2400px on the longest edge. Very small text may soften slightly on print, though the black redaction areas are still fully opaque.
+- Redaction removes content from the **exported PDF**, not from the original file on disk. The editor keeps the original bytes until you close the document or replace them.
+- Redaction is not a substitute for legal review. Verify the exported PDF with your own tooling before distributing sensitive documents.
 
 ## Images
 

@@ -168,6 +168,90 @@ describe('buildExportBytes', () => {
     expect(doc.getForm().getFields()).toHaveLength(0)
   })
 
+  it('writes an invisible OCR text layer', async () => {
+    const originalBytes = await makeFixture()
+    const state = pageState(0)
+    state.ocr = {
+      language: 'eng',
+      text: 'SEARCHABLE OCR TEXT',
+      createdAt: 1,
+      words: [
+        {
+          text: 'SEARCHABLE',
+          confidence: 95,
+          rect: { x: 24, y: 300, width: 80, height: 12 },
+        },
+        {
+          text: 'OCR',
+          confidence: 92,
+          rect: { x: 110, y: 300, width: 24, height: 12 },
+        },
+        {
+          text: 'TEXT',
+          confidence: 94,
+          rect: { x: 140, y: 300, width: 28, height: 12 },
+        },
+      ],
+    }
+    const output = await buildExportBytes({
+      originalBytes,
+      pages: [state],
+      meta: { title: '', author: '', subject: '', keywords: '' },
+    })
+    const text = await extractText(output)
+    expect(text[0]).toContain('SEARCHABLE OCR TEXT')
+  })
+
+  it('replaces redacted pages with an image and removes source text', async () => {
+    const originalBytes = await makeFixture()
+    const state = pageState(0, [
+      {
+        id: 'redact-1',
+        pageId: 'page-0',
+        type: 'redaction',
+        createdAt: 1,
+        opacity: 1,
+        rect: { x: 20, y: 340, width: 120, height: 24 },
+      },
+    ])
+    const png =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lK3Q6wAAAABJRU5ErkJggg=='
+    const pngBytes = Uint8Array.from(
+      Buffer.from(png.split(',')[1], 'base64'),
+    )
+    const output = await buildExportBytes({
+      originalBytes,
+      pages: [state],
+      meta: { title: '', author: '', subject: '', keywords: '' },
+      redactedPageImages: { [state.id]: pngBytes },
+    })
+    const doc = await PDFDocument.load(output)
+    expect(doc.getPageCount()).toBe(1)
+    const text = await extractText(output)
+    expect(text[0]).not.toContain('PAGE ONE')
+  })
+
+  it('refuses to export a redacted page without a rasterized replacement', async () => {
+    const originalBytes = await makeFixture()
+    const state = pageState(0, [
+      {
+        id: 'redact-1',
+        pageId: 'page-0',
+        type: 'redaction',
+        createdAt: 1,
+        opacity: 1,
+        rect: { x: 20, y: 340, width: 120, height: 24 },
+      },
+    ])
+    await expect(
+      buildExportBytes({
+        originalBytes,
+        pages: [state],
+        meta: { title: '', author: '', subject: '', keywords: '' },
+      }),
+    ).rejects.toThrow(/redacted pages/i)
+  })
+
   it('embeds image annotations', async () => {
     const originalBytes = await makeFixture()
     const png =

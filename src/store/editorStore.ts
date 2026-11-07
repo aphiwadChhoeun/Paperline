@@ -4,6 +4,8 @@ import { createId } from '../lib/id'
 import { isPasswordError, loadPdfDocument } from '../lib/pdfjs'
 import { buildExportBytes } from '../lib/exportPdf'
 import { extractFormFields } from '../lib/forms'
+import { ocrPages } from '../lib/ocr'
+import { renderRedactedPages } from '../lib/redact'
 import { downloadBytes, outputFileName } from '../lib/download'
 import {
   EMPTY_META,
@@ -23,6 +25,7 @@ import {
   type Point,
   type Rect,
   type RectangleAnnotation,
+  type RedactionAnnotation,
   type SessionSnapshot,
   type SidebarTab,
   type TextAlign,
@@ -36,6 +39,7 @@ export type NewAnnotation =
   | Omit<RectangleAnnotation, 'id' | 'createdAt'>
   | Omit<InkAnnotation, 'id' | 'createdAt'>
   | Omit<ImageAnnotation, 'id' | 'createdAt'>
+  | Omit<RedactionAnnotation, 'id' | 'createdAt'>
 
 export interface AnnotationPatch {
   text?: string
@@ -85,6 +89,11 @@ interface EditorState {
   pendingFile: File | null
   recoverableSession: SessionSnapshot | null
   notice: Notice | null
+  ocrOpen: boolean
+  ocrStatus: 'idle' | 'running' | 'done' | 'error'
+  ocrProgress: number
+  ocrMessage: string
+  ocrError: string | null
 
   past: EditorSnapshot[]
   future: EditorSnapshot[]
@@ -119,6 +128,8 @@ interface EditorState {
   updateFormValue: (fieldName: string, value: FormValue, recordHistory?: boolean) => void
   commitTransient: () => void
   setFlattenForms: (flatten: boolean) => void
+  setOcrOpen: (open: boolean) => void
+  runOcr: (pageIds: string[], language: string) => Promise<void>
 
   rotatePage: (pageId: string, delta: number) => void
   setPageRotation: (pageId: string, rotation: number) => void
@@ -167,6 +178,11 @@ const INITIAL = {
   pendingFile: null,
   recoverableSession: null,
   notice: null,
+  ocrOpen: false,
+  ocrStatus: 'idle' as const,
+  ocrProgress: 0,
+  ocrMessage: '',
+  ocrError: null,
   past: [] as EditorSnapshot[],
   future: [] as EditorSnapshot[],
   pendingSnapshot: null as EditorSnapshot | null,
@@ -451,6 +467,10 @@ export const useEditorStore = create<EditorState>((set, get) => {
       const page = pages.find((item) => item.id === annotation.pageId)
       if (!page) return annotation
       page.annotations.push(annotation)
+      if (annotation.type === 'redaction') {
+        // Never let an OCR text layer reintroduce redacted content.
+        page.ocr = null
+      }
       commitPages(pages)
       set({ selectedAnnotationId: annotation.id, inspectorTab: 'properties' })
       return annotation
@@ -528,6 +548,62 @@ export const useEditorStore = create<EditorState>((set, get) => {
     setFlattenForms: (flattenForms) => {
       set({ flattenForms, isDirty: true })
       writeSession(get())
+    },
+
+    setOcrOpen: (ocrOpen) => set({ ocrOpen }),
+
+    runOcr: async (pageIds, language) => {
+      const state = get()
+      if (!state.pdf || state.ocrStatus === 'running') return
+      const targetPages = state.pages.filter((page) => pageIds.includes(page.id))
+      if (targetPages.length === 0) return
+
+      set({
+        ocrStatus: 'running',
+        ocrProgress: 0,
+        ocrMessage: 'Preparing OCR…',
+        ocrError: null,
+      })
+      try {
+        const results = await ocrPages(
+          state.pdf,
+          targetPages,
+          language,
+          (progress) => {
+            set({
+              ocrProgress: progress.fraction,
+              ocrMessage: `${progress.status} · ${progress.page}/${progress.total}`,
+            })
+          },
+          state.originalBytes ?? undefined,
+        )
+        const pages = clonePages(get().pages)
+        for (const result of results) {
+          const page = pages.find((item) => item.id === result.pageId)
+          if (page) page.ocr = result.layer
+        }
+        commitPages(pages)
+        set({
+          ocrStatus: 'done',
+          ocrProgress: 1,
+          ocrMessage: `Searchable text added to ${results.length} ${
+            results.length === 1 ? 'page' : 'pages'
+          }.`,
+        })
+        notify(
+          `OCR complete. Searchable text is now available on ${
+            results.length === 1 ? 'this page' : 'these pages'
+          }.`,
+          'success',
+        )
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'OCR could not be completed. Check your network connection and try again.'
+        set({ ocrStatus: 'error', ocrError: message, ocrMessage: message })
+        notify(message, 'error')
+      }
     },
 
     rotatePage: (pageId, delta) => {
@@ -658,12 +734,24 @@ export const useEditorStore = create<EditorState>((set, get) => {
       }
       set({ status: 'exporting', isSaving: true, error: null })
       try {
+        const hasRedactions = state.pages.some((page) =>
+          page.annotations.some((annotation) => annotation.type === 'redaction'),
+        )
+        const redactedPageImages =
+          hasRedactions && state.pdf
+            ? await renderRedactedPages(
+                state.pdf,
+                state.pages,
+                state.originalBytes ?? undefined,
+              )
+            : undefined
         const bytes = await buildExportBytes({
           originalBytes: state.originalBytes,
           pages: state.pages,
           meta: state.metadata,
           formValues: state.formValues,
           flattenForms: state.flattenForms,
+          redactedPageImages,
         })
         downloadBytes(bytes, outputFileName(state.fileName))
         set({ status: 'ready', isSaving: false, isDirty: false })

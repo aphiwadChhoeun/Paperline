@@ -24,7 +24,7 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 | Page rotation | Shipped | 0/90/180/270, reflected in viewer and export. |
 | Page thumbnails | Shipped | Lazy rendering, rotation, duplicate, delete, drag reorder. |
 | Outline/bookmark navigation | Shipped | Nested outline with destination resolution. |
-| Full-document search | Shipped | Debounced, abortable, result snippets, page navigation. |
+| Full-document search | Shipped | Debounced, abortable, result snippets, page navigation; includes OCR text layers. |
 | Text selection and copy | Not yet | No PDF.js text layer in this milestone. |
 | Link navigation | Partial | Links are preserved by pdf-lib's page copy where possible, but not interactively exposed. |
 
@@ -42,7 +42,8 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 | Resize annotations with handles | Not yet | Handles are visual only; inspector changes size/style. |
 | Delete annotations | Shipped | Delete key, inspector button, undoable. |
 | Insert images | Shipped | PNG/JPEG/WebP, downscaled locally, moved and sized via the inspector, embedded on export. |
-| Redaction | Not yet | Deliberately omitted: a black overlay is not true redaction. |
+| Redaction | Shipped | Drag redaction boxes; affected pages are rasterized with the marks burned in, removing source text/images. |
+| OCR | Shipped | Current page or all pages, language selection, invisible searchable text layer, in-app search integration. |
 | Digital signature | Not yet | No cryptographic signing. |
 | Page reorder | Shipped | Thumbnail drag-and-drop. |
 | Page duplicate | Shipped | Deep copies annotations with independent page IDs. |
@@ -53,7 +54,6 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 | AcroForm fill | Shipped | Existing text, multiline text, checkboxes, radio groups, dropdowns, and option lists. |
 | AcroForm create | Not yet | No form designer. |
 | Form flattening | Shipped | Optional toggle in the Document inspector. |
-| OCR | Not yet | Not exposed. |
 
 ## Document properties and output
 
@@ -62,10 +62,12 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 | Edit title/author/subject/keywords | Shipped | Applied on export. |
 | Undo / redo | Shipped | Covers annotations, form values, and page operations. |
 | Autosave and same-file recovery | Shipped | `localStorage` keyed by name, size, and modified time. |
-| Export PDF | Shipped | Valid PDF, annotations flattened, form values written, page order/rotation applied. |
+| Export PDF | Shipped | Valid PDF, annotations flattened, form values written, OCR layers embedded, redacted pages replaced, page order/rotation applied. |
 | Flatten annotations | Shipped | Export always flattens annotations into page content. |
 | Flatten form fields | Shipped | Optional; values are baked into page content. |
 | Embed images | Shipped | Image annotations are embedded as PDF image objects. |
+| Invisible OCR text layer | Shipped | Hidden text survives in exported PDF and is text-extractable. |
+| Destructive redaction | Shipped | Redacted pages become images; original page text is not extractable. |
 | Preserve untouched content | Shipped | In-place path when page order is unchanged. |
 | Preserve bookmarks/forms on page reorganization | Partial | Page copy can drop document-level structures; see limitations. |
 | Password-protect export | Not yet | Not exposed. |
@@ -89,14 +91,14 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 | Dark theme | Not yet | Light theme only. |
 | Real-time collaboration | Not yet | Local-first. |
 | Cloud storage | Not yet | No backend. |
-| Automated export tests | Shipped | 6 Vitest regression tests. |
+| Automated export tests | Shipped | 9 Vitest regression tests. |
 
 ## Quality gates
 
 | Gate | Status |
 | --- | --- |
 | `npm run build` | Pass |
-| `npm test` | Pass (6 tests) |
+| `npm test` | Pass (9 tests) |
 | `npm run lint` | Pass with React effect warnings |
 | Browser smoke test | Pass |
 | Export reopen verification | Pass |

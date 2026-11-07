@@ -13,6 +13,7 @@ import {
   Redo2,
   RotateCcw,
   RotateCw,
+  ScanText,
   Search,
   Trash,
   Undo2,
@@ -69,6 +70,7 @@ function CommandPaletteDialog({ onOpen }: CommandPaletteProps) {
   const deletePage = useEditorStore((state) => state.deletePage)
   const closeDocument = useEditorStore((state) => state.closeDocument)
   const exportDocument = useEditorStore((state) => state.exportDocument)
+  const setOcrOpen = useEditorStore((state) => state.setOcrOpen)
 
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
@@ -186,6 +188,15 @@ function CommandPaletteDialog({ onOpen }: CommandPaletteProps) {
         run: () => setTool(toolId),
       }
     }),
+    {
+      id: 'ocr-scanned-pages',
+      group: 'Tools',
+      label: 'OCR scanned pages',
+      icon: ScanText,
+      keywords: 'searchable text tesseract scan recognize',
+      disabled: !hasDocument,
+      run: () => setOcrOpen(true),
+    },
     {
       id: 'rotate-left',
       group: 'Page',

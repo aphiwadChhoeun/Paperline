@@ -223,7 +223,14 @@ export function PdfWorkspace() {
       }
 
       const key = event.key.toLowerCase()
-      if (key === 'v' || key === 't' || key === 'h' || key === 'r' || key === 'p') {
+      if (
+        key === 'v' ||
+        key === 't' ||
+        key === 'h' ||
+        key === 'r' ||
+        key === 'p' ||
+        key === 'x'
+      ) {
         claim()
       }
       if (key === 'v') state.setTool('select')
@@ -231,6 +238,7 @@ export function PdfWorkspace() {
       else if (key === 'h') state.setTool('highlight')
       else if (key === 'r') state.setTool('rectangle')
       else if (key === 'p') state.setTool('ink')
+      else if (key === 'x') state.setTool('redact')
     }
     window.addEventListener('keydown', handleKeyDown, true)
     return () => window.removeEventListener('keydown', handleKeyDown, true)

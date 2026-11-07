@@ -1,6 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 
-export type Tool = 'select' | 'text' | 'highlight' | 'rectangle' | 'ink'
+export type Tool = 'select' | 'text' | 'highlight' | 'rectangle' | 'ink' | 'redact'
 export type SidebarTab = 'thumbnails' | 'outline' | 'search' | 'comments'
 export type InspectorTab = 'properties' | 'document' | 'pages'
 export type AppStatus = 'idle' | 'loading' | 'ready' | 'exporting' | 'error'
@@ -68,12 +68,31 @@ export interface ImageAnnotation extends AnnotationBase {
   name: string
 }
 
+export interface RedactionAnnotation extends AnnotationBase {
+  type: 'redaction'
+  rect: Rect
+}
+
+export interface OcrWord {
+  text: string
+  rect: Rect
+  confidence: number
+}
+
+export interface OcrLayer {
+  language: string
+  words: OcrWord[]
+  text: string
+  createdAt: number
+}
+
 export type Annotation =
   | TextAnnotation
   | HighlightAnnotation
   | RectangleAnnotation
   | InkAnnotation
   | ImageAnnotation
+  | RedactionAnnotation
 
 export interface PageState {
   id: string
@@ -86,6 +105,8 @@ export interface PageState {
   /** Absolute page rotation in degrees: 0, 90, 180, or 270. */
   rotation: number
   annotations: Annotation[]
+  /** Optional invisible OCR text layer created in the editor. */
+  ocr?: OcrLayer | null
 }
 
 export interface DocumentMeta {
@@ -168,4 +189,5 @@ export const ANNOTATION_LABELS: Record<Annotation['type'], string> = {
   rectangle: 'Rectangle',
   ink: 'Drawing',
   image: 'Image',
+  redaction: 'Redaction',
 }

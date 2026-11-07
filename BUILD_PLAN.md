@@ -90,12 +90,13 @@ Owns:
 Shipped: local PDF open/render, zoom/fit, thumbnails, outline, search,
 text/highlight/rectangle/ink/image annotations, select/move, fillable AcroForm
 fields (text, checkbox, radio, dropdown, option list), optional form flattening,
+OCR with an invisible searchable text layer, destructive page-raster redaction,
 page rotate/duplicate/reorder/delete, undo/redo, local session recovery, metadata
-editing, PDF export, sample documents, command palette, premium shell, export
-regression tests.
+editing, PDF export, sample documents, command palette, premium shell, and 9
+export regression tests.
 
-Documented gaps: existing text editing, form creation, OCR, true redaction,
-digital signatures, merge/split/crop, encrypted-PDF export, cloud collaboration.
+Documented gaps: existing text editing, form creation, digital signatures,
+merge/split/crop, encrypted-PDF export, cloud collaboration.
 See `FEATURE_MATRIX.md`, `KNOWN_LIMITATIONS.md`, and `QA_REPORT.md`.
 
 ## Definition of done for this milestone

@@ -2,6 +2,7 @@ import {
   Highlighter,
   MousePointer2,
   PenTool,
+  ShieldAlert,
   Square,
   Type as TypeIcon,
   type LucideIcon,
@@ -15,7 +16,14 @@ interface ToolMeta {
   icon: LucideIcon
 }
 
-export const TOOL_ORDER: Tool[] = ['select', 'text', 'highlight', 'rectangle', 'ink']
+export const TOOL_ORDER: Tool[] = [
+  'select',
+  'text',
+  'highlight',
+  'rectangle',
+  'ink',
+  'redact',
+]
 
 export const TOOL_META: Record<Tool, ToolMeta> = {
   select: {
@@ -47,5 +55,11 @@ export const TOOL_META: Record<Tool, ToolMeta> = {
     hint: 'P',
     description: 'Draw freehand with the pen',
     icon: PenTool,
+  },
+  redact: {
+    label: 'Redact',
+    hint: 'X',
+    description: 'Permanently remove content from an area',
+    icon: ShieldAlert,
   },
 }

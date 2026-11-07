@@ -79,6 +79,11 @@ export async function searchDocument(
       textCache.set(pageState.sourceIndex, pageText)
     }
 
+    const ocrText = pageState.ocr?.text?.trim()
+    if (ocrText) {
+      pageText = pageText.trim() ? `${pageText} ${ocrText}` : ocrText
+    }
+
     if (pageText) {
       const haystack = pageText.toLowerCase()
       let from = 0

@@ -7,7 +7,7 @@ Date: 2026-11-06
 | Check | Command | Result |
 | --- | --- | --- |
 | Type-check + production build | `npm run build` | Pass |
-| Export regression tests | `npm test` | 6/6 pass |
+| Export regression tests | `npm test` | 9/9 pass |
 | Lint | `npm run lint` | Pass (9 React `set-state-in-effect` warnings) |
 | Production Lighthouse | Preview server at `http://127.0.0.1:4173` | Accessibility 100, Best Practices 100, SEO 100 |
 
@@ -22,6 +22,9 @@ Date: 2026-11-06
 5. Text, checkbox, radio, dropdown, and option-list form values are written into the exported AcroForm.
 6. Form flattening removes interactive fields.
 7. Image annotations are embedded as PDF image objects.
+8. OCR words are embedded as an invisible text layer and remain extractable.
+9. Redacted pages are replaced by an image, with source text removed from extraction.
+10. Export stops if a redacted page lacks a rasterized replacement.
 
 ## Browser smoke tests
 
@@ -52,6 +55,10 @@ Performed in the in-app Chromium browser against both the Vite dev server and th
 | Insert PNG image into the page | Pass |
 | Select inserted image and edit width/height/opacity controls | Pass |
 | Export image annotation and detect an image draw operator | Pass |
+| Run OCR on a page and see the OCR text layer count in Document inspector | Pass |
+| Export OCR'd PDF and extract OCR words from the invisible layer | Pass |
+| Draw a redaction box and export | Pass |
+| Verify redacted page has no extractable source text and contains an image draw | Pass |
 | Save session, reload browser, reopen same file, restore edits | Pass |
 | Export PDF download | Pass |
 | Reopen exported PDF and extract text | Pass |
@@ -85,6 +92,9 @@ A 3-page sample was opened, annotated, duplicated (4 pages), and rotated. The do
 - Added PNG/JPEG/WebP image insertion, normalization, rendering, inspector sizing, local recovery, and pdf-lib embedding.
 - Added fillable form sample (`public/form-sample.pdf`) and form screenshot.
 - Fixed transient form/annotation history so one undo reverts the whole edit instead of producing a no-op entry.
+- Added Tesseract.js OCR with current/all-page scope, language selection, progress, invisible PDF text layer, and search integration.
+- Added destructive redaction: redaction tool, page rasterization with burned-in black boxes, export replacement, and source-text removal verification.
+- Added dedicated OCR dialog, command-palette action, and Document inspector entry points.
 
 ## Known warnings and non-blocking issues
 

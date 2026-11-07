@@ -1,5 +1,5 @@
 import { useRef, type ChangeEvent } from 'react'
-import { ImagePlus, Lock } from 'lucide-react'
+import { ImagePlus, Lock, ScanText } from 'lucide-react'
 import { currentPage, useEditorStore } from '../../store/editorStore'
 import { prepareImage } from '../../lib/image'
 import { cn } from '../ui/utils'
@@ -11,6 +11,8 @@ export function ToolRail() {
   const setTool = useEditorStore((state) => state.setTool)
   const addAnnotation = useEditorStore((state) => state.addAnnotation)
   const notify = useEditorStore((state) => state.notify)
+  const setOcrOpen = useEditorStore((state) => state.setOcrOpen)
+  const ocrRunning = useEditorStore((state) => state.ocrStatus === 'running')
   const hasDocument = useEditorStore((state) => Boolean(state.fileName))
   const imageInputRef = useRef<HTMLInputElement>(null)
 
@@ -100,7 +102,7 @@ export function ToolRail() {
           )
         })}
 
-        <div className="mt-2 border-t border-line pt-2">
+        <div className="mt-2 flex flex-col gap-1 border-t border-line pt-2">
           <Tooltip label="Insert image" side="right">
             <button
               type="button"
@@ -110,6 +112,22 @@ export function ToolRail() {
               className="focus-ring relative flex h-10 w-10 items-center justify-center rounded-[10px] text-muted transition-colors duration-150 hover:bg-surface-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
             >
               <ImagePlus size={18} strokeWidth={1.75} />
+            </button>
+          </Tooltip>
+          <Tooltip label="OCR scanned pages" side="right">
+            <button
+              type="button"
+              aria-label="OCR scanned pages"
+              disabled={!hasDocument || ocrRunning}
+              onClick={() => setOcrOpen(true)}
+              className={cn(
+                'focus-ring relative flex h-10 w-10 items-center justify-center rounded-[10px] transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-30',
+                ocrRunning
+                  ? 'bg-accent-50 text-accent-600'
+                  : 'text-muted hover:bg-surface-muted hover:text-ink',
+              )}
+            >
+              <ScanText size={18} strokeWidth={1.75} />
             </button>
           </Tooltip>
         </div>

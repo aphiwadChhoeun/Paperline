@@ -17,10 +17,13 @@ This repository is the first production-quality milestone of a larger PDF editin
 - Select, move, restyle, resize, and delete annotations.
 - Detect and fill existing AcroForm fields: text, multiline text, checkboxes, radio groups, dropdowns, and option lists.
 - Flatten form fields on export when needed.
+- Run OCR on scanned pages and write an invisible searchable text layer into the exported PDF.
+- Redact content by flattening affected pages to images so underlying text and images are actually removed.
 - Rotate, duplicate, reorder, and delete pages.
 - Undo and redo editing, form values, and page operations.
 - Autosave editable state to browser local storage and recover it when the same file is reopened.
-- Export a valid PDF with annotations flattened and page changes applied.
+- OCR language data is downloaded on demand from the Tesseract CDN; the document itself is never uploaded.
+- Export a valid PDF with annotations flattened, form values written, OCR text embedded, and page changes applied.
 - Edit document metadata (title, author, subject, keywords) before export.
 - Use a command palette and keyboard-first workflow.
 
@@ -57,9 +60,11 @@ src/
     ui/            Small design-system primitives
   lib/
     pdfjs.ts       PDF.js worker configuration and loader
-    exportPdf.ts   pdf-lib export pipeline, form values, embedded images
+    exportPdf.ts   pdf-lib export pipeline, form values, embedded images, OCR text
     forms.ts       AcroForm widget extraction and value normalization
     image.ts       Image downscaling and PNG/JPEG normalization
+    ocr.ts         Tesseract page rasterization and word extraction
+    redact.ts      Destructive page flattening and redaction rendering
     geometry.ts    PDF/user-space ↔ viewport coordinate helpers
     search.ts      Full-document text search
     download.ts    Browser download helper
@@ -87,10 +92,12 @@ Annotations are stored in PDF user space: 72 points per inch, origin at the bott
 4. Apply page rotations.
 5. Draw annotations into the page content as text, rectangles, line segments, or embedded images.
 6. Write filled AcroForm values through pdf-lib, optionally flattening the form.
-7. Update metadata and save a fresh PDF.
-8. Download the result through a Blob URL.
+7. Write OCR words as an invisible text layer where present.
+8. Replace pages containing redaction marks with high-resolution rasterized images that have the marks burned in.
+9. Update metadata and save a fresh PDF.
+10. Download the result through a Blob URL.
 
-Annotations are flattened on export. Form values remain interactive unless **Flatten fields on export** is enabled. Untouched text, vector content, images, and fonts remain real PDF content rather than screenshots.
+Annotations are flattened on export. Form values remain interactive unless **Flatten fields on export** is enabled. Redacted pages are intentionally rasterized so source text and images cannot survive under the black boxes. Untouched pages keep real text, vector content, images, and fonts rather than screenshots.
 
 ## Local-first behavior
 
@@ -114,6 +121,8 @@ The export suite covers:
 - Text, checkbox, radio, and dropdown form values.
 - Form flattening.
 - Image embedding.
+- Invisible OCR text layer extraction.
+- Redacted page replacement with source text removed.
 
 See [QA_REPORT.md](./QA_REPORT.md) for the browser smoke-test evidence.
 
@@ -123,4 +132,4 @@ The shell includes labelled controls, keyboard navigation, visible focus rings, 
 
 ## Status
 
-This is a strong local-editor milestone, not a claim of full Adobe Acrobat parity. Form filling and image insertion are implemented. Existing-PDF text editing, form creation, OCR, true redaction, digital signatures, merge/split/crop, and cloud collaboration are intentionally left for later phases rather than shipped as fake controls. See [FEATURE_MATRIX.md](./FEATURE_MATRIX.md) for the complete status.
+This is a strong local-editor milestone, not a claim of full Adobe Acrobat parity. Form filling, image insertion, OCR, and destructive page raster redaction are implemented. Existing-PDF text editing, form creation, digital signatures, merge/split/crop, and cloud collaboration are intentionally left for later phases rather than shipped as fake controls. See [FEATURE_MATRIX.md](./FEATURE_MATRIX.md) for the complete status.

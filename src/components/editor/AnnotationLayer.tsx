@@ -7,6 +7,7 @@ import type {
   PageState,
   Point,
   RectangleAnnotation,
+  RedactionAnnotation,
   TextAnnotation,
   Tool,
 } from '../../types/editor'
@@ -34,7 +35,7 @@ interface AnnotationLayerProps {
 }
 
 type ShapeDraft = {
-  kind: 'highlight' | 'rectangle'
+  kind: 'highlight' | 'rectangle' | 'redact'
   start: Point
   current: Point
   startCss: Point
@@ -235,7 +236,7 @@ export function AnnotationLayer({ page, viewport }: AnnotationLayerProps) {
 
     capturePointer(event.pointerId)
     event.preventDefault()
-    if (tool === 'highlight' || tool === 'rectangle') {
+    if (tool === 'highlight' || tool === 'rectangle' || tool === 'redact') {
       const next: ShapeDraft = {
         kind: tool,
         start: clamped,
@@ -391,6 +392,16 @@ export function AnnotationLayer({ page, viewport }: AnnotationLayerProps) {
       return
     }
 
+    if (activeDraft.kind === 'redact') {
+      addAnnotation({
+        pageId: page.id,
+        type: 'redaction',
+        rect,
+        opacity: 1,
+      })
+      return
+    }
+
     addAnnotation({
       pageId: page.id,
       type: 'rectangle',
@@ -492,6 +503,41 @@ export function AnnotationLayer({ page, viewport }: AnnotationLayerProps) {
               : 'transparent',
           }}
         />
+        {selected ? <SelectionFrame /> : null}
+      </div>
+    )
+  }
+
+  const renderRedaction = (annotation: RedactionAnnotation) => {
+    const visual =
+      drag?.annotation.id === annotation.id
+        ? translateAnnotation(annotation, drag.offset.x, drag.offset.y)
+        : annotation
+    const box = annotationViewportBounds(visual, viewport)
+    const selected = selectedId === annotation.id
+    return (
+      <div
+        key={annotation.id}
+        className="absolute"
+        style={{
+          left: box.x,
+          top: box.y,
+          width: box.width,
+          height: box.height,
+          pointerEvents: interactive(annotation) ? 'auto' : 'none',
+          cursor: tool === 'select' ? 'move' : undefined,
+        }}
+        onPointerDown={(event) => startDrag(event, annotation)}
+        onDoubleClick={(event) => {
+          event.stopPropagation()
+          selectAnnotation(annotation.id)
+        }}
+      >
+        <div className="absolute inset-0 bg-black/90" />
+        <div className="pointer-events-none absolute inset-0 border border-red-500/80" />
+        <span className="pointer-events-none absolute left-1 top-1 rounded-[2px] bg-red-600 px-1 py-px text-[8px] font-semibold uppercase tracking-[0.08em] text-white">
+          Redact
+        </span>
         {selected ? <SelectionFrame /> : null}
       </div>
     )
@@ -671,6 +717,8 @@ export function AnnotationLayer({ page, viewport }: AnnotationLayerProps) {
         return renderInk(annotation)
       case 'image':
         return renderImage(annotation)
+      case 'redaction':
+        return renderRedaction(annotation)
     }
   }
 
@@ -702,6 +750,7 @@ export function AnnotationLayer({ page, viewport }: AnnotationLayerProps) {
     const rect = normalizeRect(draft.start, draft.current)
     const box = pdfRectToViewport(rect, viewport)
     const isHighlight = draft.kind === 'highlight'
+    const isRedact = draft.kind === 'redact'
     return (
       <div
         className="pointer-events-none absolute"
@@ -712,8 +761,14 @@ export function AnnotationLayer({ page, viewport }: AnnotationLayerProps) {
           height: box.height,
           backgroundColor: isHighlight
             ? hexToRgba(HIGHLIGHT_COLOR, HIGHLIGHT_OPACITY)
-            : 'transparent',
-          border: isHighlight ? '1px solid rgba(245, 184, 61, 0.7)' : `1.5px solid ${SHAPE_COLOR}`,
+            : isRedact
+              ? 'rgba(0,0,0,0.88)'
+              : 'transparent',
+          border: isHighlight
+            ? '1px solid rgba(245, 184, 61, 0.7)'
+            : isRedact
+              ? '1.5px solid rgba(220, 38, 38, 0.9)'
+              : `1.5px solid ${SHAPE_COLOR}`,
         }}
       />
     )
@@ -725,6 +780,7 @@ export function AnnotationLayer({ page, viewport }: AnnotationLayerProps) {
     highlight: 'crosshair',
     rectangle: 'crosshair',
     ink: 'crosshair',
+    redact: 'crosshair',
   }
 
   return (

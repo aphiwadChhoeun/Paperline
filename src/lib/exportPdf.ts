@@ -6,8 +6,10 @@ import {
   PDFRadioGroup,
   PDFTextField,
   StandardFonts,
+  TextRenderingMode,
   degrees,
   rgb,
+  setTextRenderingMode,
   type PDFFont,
   type PDFImage,
   type PDFPage,
@@ -17,6 +19,7 @@ import type {
   DocumentMeta,
   FormValue,
   FormValues,
+  OcrLayer,
   PageState,
 } from '../types/editor'
 
@@ -26,6 +29,8 @@ export interface BuildExportOptions {
   meta: DocumentMeta
   formValues?: FormValues
   flattenForms?: boolean
+  /** Full-page PNG replacements produced by the redaction renderer. */
+  redactedPageImages?: Record<string, Uint8Array>
 }
 
 function hexToRgb(hex: string) {
@@ -99,6 +104,27 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
   return Uint8Array.from(binary, (character) => character.charCodeAt(0))
 }
 
+function drawOcrLayer(page: PDFPage, layer: OcrLayer, font: PDFFont) {
+  if (layer.words.length === 0) return
+  page.pushOperators(setTextRenderingMode(TextRenderingMode.Invisible))
+  for (const word of layer.words) {
+    const text = word.text
+      .normalize('NFKD')
+      .replace(/[^\x20-\x7e\u00a0-\u00ff]/g, '')
+      .trim()
+    if (!text) continue
+    const size = Math.max(4, Math.min(32, word.rect.height * 0.9))
+    page.drawText(text, {
+      x: word.rect.x,
+      y: word.rect.y + word.rect.height * 0.18,
+      size,
+      font,
+      color: rgb(0, 0, 0),
+    })
+  }
+  page.pushOperators(setTextRenderingMode(TextRenderingMode.Fill))
+}
+
 async function drawAnnotation(
   document: PDFDocument,
   page: PDFPage,
@@ -150,6 +176,9 @@ async function drawAnnotation(
       }
       break
     }
+    case 'redaction':
+      // Redacted pages are replaced by a rasterized image before this point.
+      break
     case 'image': {
       let embedded = imageCache.get(annotation.dataUrl)
       if (!embedded) {
@@ -224,6 +253,7 @@ export async function buildExportBytes({
   meta,
   formValues = {},
   flattenForms = false,
+  redactedPageImages = {},
 }: BuildExportOptions): Promise<Uint8Array> {
   if (pages.length === 0) throw new Error('There are no pages to export.')
 
@@ -231,7 +261,22 @@ export async function buildExportBytes({
   const sourcePages = original.getPages()
   if (sourcePages.length === 0) throw new Error('The source PDF has no pages.')
 
+  for (const pageState of pages) {
+    const needsRedaction = pageState.annotations.some(
+      (annotation) => annotation.type === 'redaction',
+    )
+    if (needsRedaction && !redactedPageImages[pageState.id]) {
+      throw new Error(
+        'The redacted pages could not be rasterized, so export was stopped to avoid leaking content.',
+      )
+    }
+  }
+
+  const hasRedactions = pages.some((pageState) =>
+    pageState.annotations.some((annotation) => annotation.type === 'redaction'),
+  )
   const identityOrder =
+    !hasRedactions &&
     pages.length === sourcePages.length &&
     pages.every((page, index) => page.sourceIndex === index)
 
@@ -246,8 +291,21 @@ export async function buildExportBytes({
     // guarantees that duplicated pages are independent, so annotations drawn
     // on one page never leak onto its sibling.
     for (const pageState of pages) {
-      const [copied] = await output.copyPages(original, [pageState.sourceIndex])
-      outputPages.push(output.addPage(copied))
+      const redactedImage = redactedPageImages[pageState.id]
+      if (redactedImage) {
+        const page = output.addPage([pageState.width, pageState.height])
+        const image = await output.embedPng(redactedImage)
+        page.drawImage(image, {
+          x: 0,
+          y: 0,
+          width: pageState.width,
+          height: pageState.height,
+        })
+        outputPages.push(page)
+      } else {
+        const [copied] = await output.copyPages(original, [pageState.sourceIndex])
+        outputPages.push(output.addPage(copied))
+      }
     }
   }
 
@@ -262,8 +320,12 @@ export async function buildExportBytes({
     const page = outputPages[index]
     if (!page) continue
     page.setRotation(degrees(pageState.rotation))
+    if (redactedPageImages[pageState.id]) continue
     for (const annotation of pageState.annotations) {
       await drawAnnotation(output, page, annotation, fonts, imageCache)
+    }
+    if (pageState.ocr) {
+      drawOcrLayer(page, pageState.ocr, fonts.Helvetica)
     }
   }
 
