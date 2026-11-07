@@ -6,7 +6,7 @@ Status legend: **Shipped** = works end to end; **Partial** = works with a docume
 
 | Capability | Status | Notes |
 | --- | --- | --- |
-| Open local PDF via file picker | Shipped | Accepts `.pdf` / `application/pdf`. |
+| Open local PDF via file picker | Shipped | Accepts `.pdf` / `application/pdf`; selected files are captured before the input is reset. |
 | Drag-and-drop PDF | Shipped | Window-level drop overlay. |
 | Bundled sample document | Shipped | `public/sample.pdf`. |
 | Password-protected PDF viewing | Shipped | Password dialog and retry. Export is disabled because pdf-lib cannot decrypt. |

@@ -117,9 +117,11 @@ function App() {
   }, [])
 
   const handleFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
+    // FileList is live. Capture the File before resetting the input value,
+    // otherwise the list can be emptied before the opener sees it.
+    const file = event.target.files?.[0]
     event.target.value = ''
-    if (files && files.length > 0) handleFiles(files)
+    if (file) handleFiles([file])
   }
 
   useEffect(() => {
@@ -402,7 +404,7 @@ function App() {
         ref={fileInputRef}
         type="file"
         accept="application/pdf,.pdf"
-        className="hidden"
+        className="sr-only"
         onChange={handleFileInputChange}
         aria-hidden="true"
         tabIndex={-1}

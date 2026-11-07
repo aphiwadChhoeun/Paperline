@@ -69,6 +69,7 @@ A 3-page sample was opened, annotated, duplicated (4 pages), and rotated. The do
 - Seeded first-page/thumbnail rendering so a hidden or observer-delayed tab still paints.
 - Raised the `faint` token contrast to pass WCAG AA and added valid `robots.txt`.
 - Added sample PDF generation and PDF verification scripts.
+- Fixed native file-picker opening: the change handler reset the file input before reading the live `FileList`, which emptied it in real browser selection. It now captures the `File` first. Verified with a real `FileList` and a dispatched picker change event.
 
 ## Known warnings and non-blocking issues
 
