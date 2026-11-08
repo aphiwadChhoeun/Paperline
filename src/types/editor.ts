@@ -168,6 +168,11 @@ export interface SearchMatch {
   rects: Rect[]
 }
 
+export interface SearchScrollRequest {
+  matchId: string
+  nonce: number
+}
+
 export interface Notice {
   id: string
   tone: NoticeTone

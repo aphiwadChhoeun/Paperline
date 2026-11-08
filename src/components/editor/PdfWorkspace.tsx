@@ -19,6 +19,7 @@ export function PdfWorkspace() {
   const pdf = useEditorStore((state) => state.pdf)
   const pages = useEditorStore((state) => state.pages)
   const currentId = useEditorStore((state) => state.currentPageId)
+  const searchScrollRequest = useEditorStore((state) => state.searchScrollRequest)
   const zoom = useEditorStore((state) => state.zoom)
   const fitMode = useEditorStore((state) => state.fitMode)
   const zoomIn = useEditorStore((state) => state.zoomIn)
@@ -121,6 +122,48 @@ export function PdfWorkspace() {
     }
     scrollToPage(currentId)
   }, [currentId, scrollToPage])
+
+  // Center the active search match once its page and highlight layer exist.
+  // A newly navigated page may need a few frames to render its canvas and
+  // calculate its viewport, so retry briefly instead of racing the renderer.
+  useEffect(() => {
+    if (!searchScrollRequest) return
+    const match = useEditorStore
+      .getState()
+      .searchMatches.find((item) => item.id === searchScrollRequest.matchId)
+    if (!match) return
+
+    let cancelled = false
+    let attempts = 0
+    let timer: number | null = null
+
+    const tryScroll = () => {
+      if (cancelled) return
+      const pageElement = pageRefs.current.get(match.pageId)
+      const highlight = pageElement?.querySelector<HTMLElement>(
+        '[data-search-active="true"]',
+      )
+      if (highlight) {
+        highlight.scrollIntoView({
+          block: 'center',
+          inline: 'nearest',
+          behavior: 'smooth',
+        })
+        return
+      }
+      attempts += 1
+      if (attempts < 50) {
+        timer = window.setTimeout(tryScroll, 100)
+      }
+    }
+
+    const frame = window.requestAnimationFrame(tryScroll)
+    return () => {
+      cancelled = true
+      window.cancelAnimationFrame(frame)
+      if (timer !== null) window.clearTimeout(timer)
+    }
+  }, [searchScrollRequest])
 
   const pagesKey = pages.map((page) => page.id).join('|')
 

@@ -14,7 +14,7 @@ This repository is the first production-quality milestone of a larger PDF editin
 
 - Open a local PDF with the file picker, drag-and-drop, or the bundled sample.
 - Render pages with PDF.js, including zoom, fit width/page, rotation, thumbnails, and continuous scrolling.
-- Navigate with the outline, full-document search with on-page match highlights, page thumbnails, and keyboard shortcuts.
+- Navigate with the outline, full-document search with on-page match highlights and scroll-to-match navigation, page thumbnails, and keyboard shortcuts.
 - Add text boxes, highlights, rectangles, freehand ink, and images.
 - Select, move, restyle, resize, and delete annotations.
 - Detect and fill existing AcroForm fields: text, multiline text, checkboxes, radio groups, dropdowns, and option lists.

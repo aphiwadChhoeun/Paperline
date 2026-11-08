@@ -23,10 +23,9 @@ function Snippet({ snippet, query }: { snippet: string; query: string }) {
 export function SearchPanel() {
   const pdf = useEditorStore((state) => state.pdf)
   const pages = useEditorStore((state) => state.pages)
-  const setCurrentPageId = useEditorStore((state) => state.setCurrentPageId)
   const activeSearchMatchId = useEditorStore((state) => state.activeSearchMatchId)
   const setSearchMatches = useEditorStore((state) => state.setSearchMatches)
-  const setActiveSearchMatch = useEditorStore((state) => state.setActiveSearchMatch)
+  const focusSearchMatch = useEditorStore((state) => state.focusSearchMatch)
   const clearSearchHighlights = useEditorStore((state) => state.clearSearchHighlights)
 
   const [query, setQuery] = useState('')
@@ -97,8 +96,7 @@ export function SearchPanel() {
 
   const jumpToResult = (match: SearchMatch | undefined) => {
     if (!match) return
-    setActiveSearchMatch(match.id)
-    setCurrentPageId(match.pageId)
+    focusSearchMatch(match.id)
   }
 
   const progressRatio =

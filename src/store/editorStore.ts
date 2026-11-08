@@ -27,6 +27,7 @@ import {
   type RectangleAnnotation,
   type RedactionAnnotation,
   type SearchMatch,
+  type SearchScrollRequest,
   type SessionSnapshot,
   type SidebarTab,
   type TextAlign,
@@ -92,6 +93,7 @@ interface EditorState {
   notice: Notice | null
   searchMatches: SearchMatch[]
   activeSearchMatchId: string | null
+  searchScrollRequest: SearchScrollRequest | null
   ocrOpen: boolean
   ocrStatus: 'idle' | 'running' | 'done' | 'error'
   ocrProgress: number
@@ -135,6 +137,7 @@ interface EditorState {
   runOcr: (pageIds: string[], language: string) => Promise<void>
   setSearchMatches: (matches: SearchMatch[]) => void
   setActiveSearchMatch: (id: string | null) => void
+  focusSearchMatch: (id: string) => void
   clearSearchHighlights: () => void
 
   rotatePage: (pageId: string, delta: number) => void
@@ -186,6 +189,7 @@ const INITIAL = {
   notice: null,
   searchMatches: [] as SearchMatch[],
   activeSearchMatchId: null,
+  searchScrollRequest: null,
   ocrOpen: false,
   ocrStatus: 'idle' as const,
   ocrProgress: 0,
@@ -618,12 +622,32 @@ export const useEditorStore = create<EditorState>((set, get) => {
       set({
         searchMatches: matches,
         activeSearchMatchId: matches[0]?.id ?? null,
+        searchScrollRequest: null,
       }),
 
     setActiveSearchMatch: (activeSearchMatchId) => set({ activeSearchMatchId }),
 
+    focusSearchMatch: (id) => {
+      const state = get()
+      const match = state.searchMatches.find((item) => item.id === id)
+      if (!match) return
+      set({
+        activeSearchMatchId: id,
+        currentPageId: match.pageId,
+        selectedPageId: match.pageId,
+        searchScrollRequest: {
+          matchId: id,
+          nonce: (state.searchScrollRequest?.nonce ?? 0) + 1,
+        },
+      })
+    },
+
     clearSearchHighlights: () =>
-      set({ searchMatches: [], activeSearchMatchId: null }),
+      set({
+        searchMatches: [],
+        activeSearchMatchId: null,
+        searchScrollRequest: null,
+      }),
 
     rotatePage: (pageId, delta) => {
       const pages = clonePages(get().pages)
